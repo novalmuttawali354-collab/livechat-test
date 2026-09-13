@@ -34,7 +34,7 @@ body{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 <script>
-  const firebaseConfig = {
+const firebaseConfig = {
   apiKey: "AIzaSyDuBJKBr6OzSDOM1-29SDS0fPcJ80R94gY",
   authDomain: "dashboard-2b53b.firebaseapp.com",
   databaseURL: "https://dashboard-2b53b-default-rtdb.firebaseio.com",
@@ -44,7 +44,6 @@ body{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:
   appId: "1:537533916510:web:da80e04ee7b9ed52c91bcf",
   measurementId: "G-KBH3R58S0J"
 };
-const FIREBASE_CONFIG={apiKey:"PASTE_FIREBASE_API_KEY",authDomain:"PASTE_PROJECT_ID.firebaseapp.com",databaseURL:"https://PASTE_PROJECT_ID-default-rtdb.firebaseio.com",projectId:"PASTE_PROJECT_ID",appId:"PASTE_FIREBASE_APP_ID"};
 const $=id=>document.getElementById(id);let db,auth,currentUser,currentRef,started=false;
 function nowHM(){return new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}
 function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
