@@ -1,0 +1,725 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CS Command Center</title>
+<style>
+:root{
+  --bg:#07111f;--panel:#0b1728;--panel2:#0e1d31;--line:#17324f;
+  --text:#eaf4ff;--muted:#8da5bd;--cyan:#20d6e7;--teal:#20c7a6;
+  --blue:#4f8cff;--red:#ff6677;--amber:#f3b94f;--green:#47d18c;
+  --shadow:0 18px 40px rgba(0,0,0,.28);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#050b14,#081728 45%,#06111c);color:var(--text);height:100vh;overflow:hidden}
+button,input,select,textarea{font:inherit}
+.app{display:grid;grid-template-columns:245px 1fr;height:100vh}
+.sidebar{background:rgba(8,18,31,.96);border-right:1px solid var(--line);padding:18px 14px;display:flex;flex-direction:column;gap:14px}
+.brand{padding:10px 12px 18px;border-bottom:1px solid var(--line)}
+.logo{font-size:22px;font-weight:800;letter-spacing:.5px}.logo b{color:var(--cyan)}
+.sub{color:var(--muted);font-size:12px;margin-top:5px}
+.nav{display:flex;flex-direction:column;gap:7px;overflow:auto}
+.nav button{border:0;background:transparent;color:#a8bdd0;text-align:left;padding:11px 12px;border-radius:10px;cursor:pointer}
+.nav button:hover,.nav button.active{background:linear-gradient(90deg,rgba(32,214,231,.14),rgba(79,140,255,.08));color:white;box-shadow:inset 0 0 0 1px rgba(32,214,231,.2)}
+.sidebar-foot{margin-top:auto;border-top:1px solid var(--line);padding-top:14px}
+.bot-toggle{display:flex;justify-content:space-between;align-items:center;background:#0d1b2d;padding:10px 12px;border-radius:10px}
+.switch{width:46px;height:24px;border-radius:999px;background:#31445a;position:relative;cursor:pointer}
+.switch:after{content:"";width:18px;height:18px;border-radius:50%;background:white;position:absolute;top:3px;left:4px;transition:.2s}
+.switch.on{background:var(--teal)}.switch.on:after{left:24px}
+.main{display:grid;grid-template-rows:64px 1fr;min-width:0}
+.topbar{display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid var(--line);background:rgba(7,17,31,.82);backdrop-filter:blur(12px)}
+.search{flex:1}.search input{width:100%;background:#0a1829;border:1px solid var(--line);border-radius:10px;color:white;padding:10px 12px;outline:none}
+.pill{padding:8px 10px;border:1px solid var(--line);background:#0a1829;border-radius:999px;color:#c8d7e5;font-size:12px}
+.content{overflow:auto;padding:18px}
+.page{display:none}.page.active{display:block}
+.grid-kpi{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:12px}
+.card{background:linear-gradient(180deg,rgba(15,32,52,.92),rgba(9,22,38,.92));border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.kpi{padding:14px}.kpi .label{font-size:12px;color:var(--muted)}.kpi .num{font-size:26px;font-weight:800;margin-top:8px}.kpi .trend{font-size:11px;color:var(--green);margin-top:6px}
+.section-title{display:flex;justify-content:space-between;align-items:center;margin:16px 0 10px}.section-title h2{margin:0;font-size:18px}
+.row{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.list{padding:10px}.conv{display:flex;gap:10px;padding:11px;border-radius:10px;border-bottom:1px solid rgba(23,50,79,.5);cursor:pointer}.conv:hover{background:#0e1d31}
+.avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#1c6c89,#204a90);font-weight:800}
+.conv-main{min-width:0;flex:1}.conv-title{display:flex;justify-content:space-between;gap:10px}.conv-title b{font-size:13px}.conv-msg{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
+.badge{display:inline-block;padding:3px 7px;border-radius:999px;font-size:10px;border:1px solid var(--line);color:#bcd0e2}.badge.green{color:#a9f2cf;border-color:#1f7657;background:#0a2b24}.badge.red{color:#ffb3bd;border-color:#7d2f3b;background:#30151c}.badge.amber{color:#ffe2a5;border-color:#755b25;background:#302712}.badge.cyan{color:#bdf8ff;border-color:#1f6b75;background:#0e2930}
+.inbox{display:grid;grid-template-columns:320px minmax(0,1fr) 310px;height:calc(100vh - 100px);gap:10px}
+.panel{background:#091827;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.panel-head{padding:12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.filters{display:flex;gap:6px;flex-wrap:wrap;padding:10px;border-bottom:1px solid var(--line)}
+.filters select,.filters input{background:#0c1d30;color:white;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:12px}
+.conv-list{overflow:auto;height:calc(100% - 106px)}
+.thread{display:grid;grid-template-rows:auto 1fr auto;height:100%}
+.messages{padding:14px;overflow:auto;background:radial-gradient(circle at top right,rgba(32,214,231,.05),transparent 32%)}
+.msg{max-width:72%;padding:10px 12px;border-radius:12px;margin:7px 0;font-size:13px;line-height:1.35}.msg.member{background:#10253c;border:1px solid #1b3b5e}.msg.bot{background:#0c3a35;border:1px solid #1a6b60;margin-left:auto}.msg.agent{background:#19315f;border:1px solid #2b4f90;margin-left:auto}.msg small{display:block;color:#8da5bd;margin-top:5px}
+.composer{border-top:1px solid var(--line);padding:10px}.composer textarea{width:100%;height:72px;background:#0b1d31;color:white;border:1px solid var(--line);border-radius:10px;padding:10px;resize:none}.composer-actions{display:flex;justify-content:space-between;gap:8px;margin-top:8px}
+.btn{border:1px solid var(--line);background:#102039;color:white;border-radius:9px;padding:8px 11px;cursor:pointer}.btn:hover{filter:brightness(1.15)}.btn.primary{background:linear-gradient(90deg,#137889,#225cab);border-color:#2785a8}.btn.danger{background:#3b1820;border-color:#77303d}.btn.success{background:#123c31;border-color:#236d57}
+.context{padding:12px;overflow:auto;height:100%}.context h3{font-size:14px;margin:15px 0 8px}.info{background:#0c1c2d;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px}.info label{display:block;color:var(--muted);font-size:11px}.info div{font-size:13px;margin-top:4px}
+.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:12px}.table th{color:#9db3c8;font-weight:600;background:#0b1a2a;position:sticky;top:0}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.toolbar input,.toolbar select,.form input,.form textarea,.form select{background:#0b1b2d;color:white;border:1px solid var(--line);border-radius:9px;padding:9px;outline:none}
+.rules{display:grid;gap:10px}.rule{padding:12px}.rule-top{display:flex;justify-content:space-between;align-items:center;gap:12px}.rule-name{font-weight:700}.rule-meta{font-size:11px;color:var(--muted);margin-top:5px}.rule-body{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.codeish{background:#071321;border:1px solid #15324f;padding:9px;border-radius:8px;font-size:12px;color:#cfe7ff}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;z-index:50}.modal.show{display:flex}.modal-box{width:min(680px,94vw);max-height:88vh;overflow:auto;background:#0a1828;border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:10px}.form .full{grid-column:1/-1}.form label{font-size:11px;color:var(--muted);display:block;margin-bottom:5px}
+.toast{position:fixed;right:18px;bottom:18px;background:#102b29;border:1px solid #266c62;padding:11px 14px;border-radius:10px;color:#d8fff6;opacity:0;transform:translateY(10px);transition:.2s;z-index:80}.toast.show{opacity:1;transform:none}
+.chart{height:220px;padding:16px;display:flex;align-items:flex-end;gap:10px}.bar{flex:1;background:linear-gradient(180deg,#28d2d8,#24549d);border-radius:6px 6px 0 0;min-width:12px;position:relative}.bar span{position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--muted)}
+@media(max-width:1200px){.grid-kpi{grid-template-columns:repeat(3,1fr)}.inbox{grid-template-columns:290px 1fr}.context-panel{display:none}}
+@media(max-width:800px){body{overflow:auto}.app{grid-template-columns:1fr;height:auto}.sidebar{position:sticky;top:0;z-index:20;flex-direction:row;overflow:auto;border-right:0;border-bottom:1px solid var(--line)}.brand,.sidebar-foot{display:none}.nav{flex-direction:row}.nav button{white-space:nowrap}.main{display:block}.topbar{position:sticky;top:64px;z-index:15}.grid-kpi{grid-template-columns:repeat(2,1fr)}.row{grid-template-columns:1fr}.inbox{grid-template-columns:1fr;height:auto}.list-panel{height:320px}.thread-panel{height:620px}.form{grid-template-columns:1fr}}
+
+/* Firebase realtime additions */
+#firebaseLoginOverlay{position:fixed;inset:0;z-index:9999;background:radial-gradient(circle at 20% 10%,rgba(32,214,231,.12),transparent 32%),rgba(3,9,17,.97);display:grid;place-items:center;padding:20px}
+#firebaseLoginOverlay.hidden{display:none}.fb-login{width:min(430px,94vw);background:linear-gradient(180deg,#0d1d31,#081522);border:1px solid #1d4266;border-radius:20px;padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.fb-login h2{margin:0 0 6px}.fb-login p{color:#8da5bd;font-size:13px;line-height:1.55}.fb-login input{width:100%;margin:7px 0;background:#071321;border:1px solid #1b3b5e;border-radius:10px;padding:11px;color:white;outline:none}.fb-login button{width:100%;margin-top:9px}.fb-error{min-height:18px;color:#ff97a4;font-size:12px;margin-top:8px}.realtime-dot{width:8px;height:8px;border-radius:50%;background:#47d18c;display:inline-block;box-shadow:0 0 14px #47d18c;margin-right:6px}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="logo">CS <b>COMMAND</b></div><div class="sub">Smart Support Center</div></div>
+    <div class="nav" id="nav"></div>
+    <div class="sidebar-foot">
+      <div class="bot-toggle"><div><b style="font-size:13px">Auto Bot</b><div class="sub">Global status</div></div><div id="botSwitch" class="switch on"></div></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="search"><input id="globalSearch" placeholder="Cari member, user ID, chat, rule..." /></div>
+      <div class="pill" id="botStatusPill">BOT: ON</div>
+      <div class="pill">Admin Panel</div>
+      <div class="avatar" style="width:34px;height:34px">A</div>
+    </div>
+    <div class="content">
+      <section id="page-overview" class="page active"></section>
+      <section id="page-inbox" class="page"></section>
+      <section id="page-members" class="page"></section>
+      <section id="page-bot" class="page"></section>
+      <section id="page-qna" class="page"></section>
+      <section id="page-unanswered" class="page"></section>
+      <section id="page-kb" class="page"></section>
+      <section id="page-canned" class="page"></section>
+      <section id="page-issues" class="page"></section>
+      <section id="page-channels" class="page"></section>
+      <section id="page-operators" class="page"></section>
+      <section id="page-analytics" class="page"></section>
+      <section id="page-audit" class="page"></section>
+      <section id="page-settings" class="page"></section>
+    </div>
+  </main>
+</div>
+
+
+<div id="firebaseLoginOverlay">
+  <div class="fb-login">
+    <div class="badge cyan" style="margin-bottom:12px">ADMIN SECURE LOGIN</div>
+    <h2>Masuk ke CS Command Center</h2>
+    <p>Gunakan akun Email/Password Firebase yang dibuat khusus untuk admin. Setelah login, Live Inbox akan menerima chat member secara realtime.</p>
+    <input id="fbAdminEmail" type="email" placeholder="Email admin Firebase">
+    <input id="fbAdminPassword" type="password" placeholder="Password admin Firebase">
+    <button class="btn primary" id="fbAdminLoginBtn">Masuk Dashboard</button>
+    <div class="fb-error" id="fbAdminError"></div>
+  </div>
+</div>
+
+<div class="modal" id="modal"><div class="modal-box"><div id="modalContent"></div></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const NAV = [
+  ["overview","Overview"],["inbox","Live Inbox"],["members","Members"],["bot","Bot Automation"],
+  ["qna","Q&A Auto Bot"],["unanswered","Unanswered Queue"],["kb","Knowledge Base"],
+  ["canned","Canned Replies"],["issues","Issues & Categories"],["channels","Channels"],
+  ["operators","Operators"],["analytics","Analytics"],["audit","Audit Log"],["settings","Settings"]
+];
+
+const seedRules = [
+ {id:1,name:"Greeting",category:"General",priority:20,triggers:["min","halo","hallo min"],intent:"greeting",required:[],response:["Hallo bosku, ada yang bisa kami bantu?","Halo bosku 👋 Ada yang bisa kami bantu hari ini?","Siap bosku, silakan sampaikan kendalanya ya."],enabled:true},
+ {id:2,name:"Withdraw Pending",category:"Withdraw",priority:100,triggers:["wd","withdraw","belum masuk"],intent:"withdraw",required:["userid"],response:["Baik bosku, kirim User ID terlebih dahulu ya.","Siap bosku, boleh kirim User ID untuk kami cek."],after:"Baik bosku, akan kami cek.",enabled:true},
+ {id:3,name:"Deposit Pending",category:"Deposit",priority:110,triggers:["dp","depo","deposit"],intent:"deposit",required:["proof"],response:["Boleh kirim bukti transfernya ya bosku, agar dapat kami cek.","Silakan kirim bukti transfer terlebih dahulu bosku."],after:"Baik bosku, bukti sudah diterima. Akan kami cek.",enabled:true},
+ {id:4,name:"Status Follow-up",category:"General",priority:80,triggers:["gimana","lama","sudah belum","cek lagi","belum selesai"],intent:"followup",required:[],response:["Masih dalam pengecekan, mohon menunggu.","Mohon bersabar bosku, saat ini masih dalam proses pengecekan."],enabled:true},
+ {id:5,name:"Closing",category:"General",priority:10,triggers:["baik","sip","siap","ok","oke"],intent:"closing",required:[],response:["Baik bosku, terima kasih. Ada lagi yang bisa dibantu?"],enabled:true},
+ {id:6,name:"Forgot Password",category:"Login",priority:90,triggers:["lupa password","lupa sandi","tidak bisa login"],intent:"forgot_password",required:["bankdata"],response:["Mohon kirim data terdaftar: atas nama rekening, nomor rekening, dan bank/e-wallet."],enabled:true},
+ {id:7,name:"Forgot User ID",category:"User ID",priority:90,triggers:["lupa user","lupa userid","lupa id"],intent:"forgot_userid",required:["bankdata"],response:["Mohon kirim data terdaftar: atas nama rekening, nomor rekening, dan bank/e-wallet."],enabled:true},
+ {id:8,name:"Bonus Info",category:"Bonus/Promo",priority:95,triggers:["bonus","promo","cashback"],intent:"bonus",required:[],response:["Promo tersedia: Cashback kekalahan slot 5% (Senin otomatis), sportsbook up to 5% (Senin), livegame up to 5% (Senin), cashback turnover slot 0,5% (Kamis), livegame 0,5% (Kamis)."],enabled:true},
+ {id:9,name:"Complaint",category:"General",priority:5,triggers:["anjing","bangsat","lama kali","jelek"],intent:"complaint",required:[],response:["Kami bantu cek ya bosku. Mohon sampaikan kendalanya agar bisa kami tindaklanjuti.","Baik bosku, kami mengerti kendalanya. Silakan kirim detailnya agar dapat kami bantu."],enabled:true}
+];
+
+const seedConversations = [];
+
+const seedKB=[
+ {id:1,title:"Deposit Pending",category:"Deposit",tags:"deposit, bukti transfer",content:"Pastikan member mengirim bukti transfer. Cek nominal, jam, bank tujuan, dan mutasi."},
+ {id:2,title:"Withdraw Pending",category:"Withdraw",tags:"withdraw, userid",content:"Minta User ID jika belum ada. Jangan meminta ulang jika sudah tersimpan."},
+ {id:3,title:"Lupa Password",category:"Login",tags:"login, password",content:"Minta nama rekening, nomor rekening, dan bank/e-wallet terdaftar."},
+ {id:4,title:"Promo / Bonus",category:"Bonus/Promo",tags:"bonus, promo",content:"Cashback slot 5% Senin; sportsbook/livegame up to 5% Senin; turnover cashback 0,5% Kamis."}
+];
+
+const seedCanned=[
+ {id:1,shortcut:"/cek",title:"Akan dicek",category:"General",text:"Baik bosku, akan kami cek terlebih dahulu ya."},
+ {id:2,shortcut:"/tunggu",title:"Masih dicek",category:"General",text:"Masih dalam pengecekan, mohon menunggu."},
+ {id:3,shortcut:"/userid",title:"Minta User ID",category:"Withdraw",text:"Boleh kirim User ID terlebih dahulu ya bosku."},
+ {id:4,shortcut:"/bukti",title:"Minta Bukti Transfer",category:"Deposit",text:"Silakan kirim bukti transfernya ya bosku agar dapat kami cek."}
+];
+
+
+const seedQna=[
+ {id:1,question:"Bagaimana cara cek status deposit?",keywords:["cek deposit","status deposit","deposit masuk"],category:"Deposit",answer:"Baik bosku, untuk pengecekan deposit silakan kirim bukti transfer terlebih dahulu ya.",enabled:true},
+ {id:2,question:"Kenapa withdraw belum masuk?",keywords:["kenapa wd","withdraw belum masuk","wd lama"],category:"Withdraw",answer:"Baik bosku, silakan kirim User ID terlebih dahulu agar withdraw dapat kami cek.",enabled:true},
+ {id:3,question:"Bagaimana jika lupa password?",keywords:["cara reset password","reset sandi","password lupa"],category:"Login",answer:"Silakan kirim data terdaftar: atas nama rekening, nomor rekening, dan bank/e-wallet ya bosku.",enabled:true},
+ {id:4,question:"Apa promo yang tersedia?",keywords:["promo apa","bonus apa","cashback apa"],category:"Bonus/Promo",answer:"Promo tersedia dapat dilihat pada menu promo. Jika ingin kami jelaskan promo tertentu, sebutkan nama promonya ya bosku.",enabled:true}
+];
+
+const seedUnanswered=[
+ {id:1,text:"min kalau nomor rekening sudah ganti gimana?",count:2,last:"12:11",member:"USER2011",status:"open"},
+ {id:2,text:"apakah bisa login dari 2 hp sekaligus?",count:1,last:"11:43",member:"USER1882",status:"open"}
+];
+
+const seedBotConfig={
+ delay:450,
+ fallback:"Baik bosku, pertanyaan ini belum dikenali oleh Auto Bot. Sudah kami masukkan ke antrean admin untuk dibuatkan jawaban.",
+ captureUnanswered:true,
+ autoFallback:true
+};
+
+const seedIssues=[
+ {id:1,name:"Deposit",sla:"5 menit",priority:"High",bot:true},
+ {id:2,name:"Withdraw",sla:"5 menit",priority:"High",bot:true},
+ {id:3,name:"Login",sla:"10 menit",priority:"Medium",bot:true},
+ {id:4,name:"User ID",sla:"10 menit",priority:"Medium",bot:true},
+ {id:5,name:"Bonus/Promo",sla:"15 menit",priority:"Low",bot:true},
+ {id:6,name:"Bank Status",sla:"5 menit",priority:"High",bot:true},
+ {id:7,name:"Game Complaint",sla:"10 menit",priority:"Medium",bot:true},
+ {id:8,name:"General",sla:"15 menit",priority:"Low",bot:true}
+];
+
+const seedOperators=[
+ {id:1,name:"NOVAL",role:"Super Admin",status:"online",active:3,resolved:24},
+ {id:2,name:"LEO",role:"Supervisor",status:"online",active:4,resolved:18},
+ {id:3,name:"JUWAN",role:"Agent",status:"away",active:2,resolved:15},
+ {id:4,name:"RIDWAN",role:"Agent",status:"offline",active:0,resolved:20}
+];
+
+const seedAudit=[
+ {time:"12:40",user:"NOVAL",action:"Bot global diaktifkan"},
+ {time:"12:21",user:"LEO",action:"Rule Withdraw diperbarui"},
+ {time:"11:50",user:"NOVAL",action:"Kategori Deposit diubah"},
+ {time:"11:33",user:"JUWAN",action:"Conversation #102 di-resolve"}
+];
+
+const store = {
+ get(k,def){try{return JSON.parse(localStorage.getItem("cscc_"+k)) ?? def}catch{return def}},
+ set(k,v){localStorage.setItem("cscc_"+k,JSON.stringify(v))}
+};
+
+let state={
+ botOn:store.get("botOn",true),
+ rules:store.get("rules",seedRules),
+ conversations:store.get("conversations",seedConversations),
+ kb:store.get("kb",seedKB),
+ canned:store.get("canned",seedCanned),
+ qna:store.get("qna",seedQna),
+ unanswered:store.get("unanswered",seedUnanswered),
+ botConfig:store.get("botConfig",seedBotConfig),
+ issues:store.get("issues",seedIssues),
+ operators:store.get("operators",seedOperators),
+ audit:store.get("audit",seedAudit),
+ selectedConversation:null
+};
+
+function saveAll(){
+ ["botOn","rules","conversations","kb","canned","qna","unanswered","botConfig","issues","operators","audit"].forEach(k=>store.set(k,state[k]));
+}
+function toast(msg){let t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1800)}
+function addAudit(action,user="NOVAL"){state.audit.unshift({time:new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}),user,action});saveAll();}
+function esc(s=""){return String(s).replace(/[&<>"\']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","\'":"&#39;"}[m]))}
+
+function renderNav(){
+ let n=document.getElementById("nav");
+ n.innerHTML=NAV.map(([id,label],i)=>`<button class="${i===0?'active':''}" data-page="${id}">${label}</button>`).join("");
+ n.querySelectorAll("button").forEach(b=>b.onclick=()=>showPage(b.dataset.page,b));
+}
+function showPage(id,btn){
+ document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+ document.getElementById("page-"+id).classList.add("active");
+ document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active")); if(btn)btn.classList.add("active");
+ ({overview:renderOverview,inbox:renderInbox,members:renderMembers,bot:renderBot,qna:renderQnA,unanswered:renderUnanswered,kb:renderKB,canned:renderCanned,issues:renderIssues,channels:renderChannels,operators:renderOperators,analytics:renderAnalytics,audit:renderAudit,settings:renderSettings}[id]||(()=>{}))();
+}
+function statusBadge(s){let c=s==="resolved"?"green":s==="waiting"?"amber":s==="human"?"cyan":"";return `<span class="badge ${c}">${esc(s)}</span>`}
+function renderOverview(){
+ let waiting=state.conversations.filter(x=>x.status==="waiting").length, resolved=state.conversations.filter(x=>x.status==="resolved").length, bot=state.conversations.filter(x=>x.status==="bot").length;
+ document.getElementById("page-overview").innerHTML=`
+ <div class="section-title"><h2>Overview</h2><span class="pill">Live monitoring</span></div>
+ <div class="grid-kpi">
+  ${[["Total Chat",state.conversations.length],["Waiting",waiting],["Bot Handled",bot],["Escalated",state.conversations.filter(x=>x.status==="human").length],["Avg Response","18s"],["Unanswered",state.unanswered.filter(x=>x.status==="open").length]].map(x=>`<div class="card kpi"><div class="label">${x[0]}</div><div class="num">${x[1]}</div><div class="trend">↑ sistem aktif</div></div>`).join("")}
+ </div>
+ <div class="row" style="margin-top:12px">
+  <div class="card list"><div class="section-title"><h2>Recent Conversations</h2></div>${state.conversations.slice(0,8).map(c=>convHTML(c)).join("")}</div>
+  <div class="card"><div class="section-title" style="padding:0 14px"><h2>Bot Automation</h2></div><div class="chart">${[64,78,52,88,71,91,84].map((h,i)=>`<div class="bar" style="height:${h}%"><span>${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][i]}</span></div>`).join("")}</div></div>
+ </div>`;
+}
+function convHTML(c){return `<div class="conv" onclick="openConversation(${c.id})"><div class="avatar">${esc((c.name||"M")[0])}</div><div class="conv-main"><div class="conv-title"><b>${esc(c.name)}</b><span style="font-size:10px;color:#829bb2">${esc(c.channel)}</span></div><div class="conv-msg">${esc(c.messages.at(-1)?.text||"")}</div><div style="margin-top:6px">${statusBadge(c.status)} <span class="badge">${esc(c.category)}</span>${c.unread?` <span class="badge red">${c.unread}</span>`:""}</div></div></div>`}
+function openConversation(id){
+ let c=state.conversations.find(x=>x.id===id);state.selectedConversation=id;
+ if(c){c.unread=0;saveAll();window.csccRealtime?.syncMeta(c)}
+ showPage("inbox",document.querySelector('[data-page="inbox"]'))
+}
+
+function renderInbox(){
+ let c=state.conversations.find(x=>x.id===state.selectedConversation)||state.conversations[0];
+ if(!c){
+   document.getElementById("page-inbox").innerHTML=`
+   <div class="card" style="min-height:calc(100vh - 110px);display:grid;place-items:center;padding:30px;text-align:center">
+     <div style="max-width:520px">
+       <div style="width:72px;height:72px;border-radius:22px;margin:0 auto 18px;display:grid;place-items:center;background:linear-gradient(135deg,#0d3546,#123d75);font-size:30px">💬</div>
+       <h2 style="margin:0 0 8px">Belum ada member masuk</h2>
+       <p class="sub" style="font-size:14px;line-height:1.6">Live Inbox hanya akan menampilkan percakapan member asli dari website chat yang terhubung Firebase.</p>
+       <span class="badge green">REALTIME READY</span>
+     </div>
+   </div>`;
+   return;
+ }
+ document.getElementById("page-inbox").innerHTML=`
+ <div class="inbox">
+  <div class="panel list-panel">
+   <div class="panel-head"><div><b>Live Inbox</b><div class="sub">Semua pesan member masuk di sini</div></div>
+    <div><span class="badge green">● REALTIME</span></div>
+   </div>
+   <div class="filters"><input id="inboxSearch" placeholder="Cari member/chat..." style="flex:1"><select id="statusFilter"><option value="">Semua status</option><option>waiting</option><option>bot</option><option>human</option><option>resolved</option></select></div>
+   <div class="conv-list" id="convList">${state.conversations.map(convHTML).join("")}</div>
+  </div>
+
+  <div class="panel thread-panel thread">
+   <div class="panel-head">
+    <div><b>${esc(c.name)}</b><div class="sub">${esc(c.userid)} • ${esc(c.channel)} • ${esc(c.category)}</div></div>
+    <div><span class="badge cyan">MEMBER → AUTO BOT</span> <button class="btn" onclick="togglePause(${c.id})">${c.botPaused?"Resume Bot":"Pause Bot"}</button> <button class="btn success" onclick="resolveConv(${c.id})">Resolve</button></div>
+   </div>
+
+   <div class="messages" id="messages">
+    ${c.messages.map(m=>`<div class="msg ${m.from}">${esc(m.text)}<small>${m.from==="member"?"MEMBER":m.from==="bot"?"AUTO BOT":"AGENT"} • ${esc(m.time)}</small></div>`).join("")}
+   </div>
+
+   <div class="composer">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+      <div><b style="font-size:12px">Balas sebagai Admin</b><div class="sub">Balasan ini langsung terkirim ke website chat member.</div></div>
+      <span class="badge ${state.botOn&&!c.botPaused?"green":"red"}">${state.botOn&&!c.botPaused?"AUTO BOT AKTIF":"AUTO BOT PAUSE"}</span>
+    </div>
+    <textarea id="memberComposer" placeholder="Ketik balasan admin..."></textarea>
+    <div class="composer-actions">
+      <div class="sub">Enter = kirim • Shift+Enter = baris baru</div>
+      <button class="btn primary" onclick="sendAgentInline(${c.id})">Kirim Balasan</button>
+    </div>
+   </div>
+  </div>
+
+  <div class="panel context-panel"><div class="context">
+   <h3>Member Context</h3>
+   <div class="info"><label>User ID</label><div>${esc(c.userid||"-")}</div></div>
+   <div class="info"><label>Detected Intent</label><div>${esc(c.intent||"-")}</div></div>
+   <div class="info"><label>Priority</label><div>${esc(c.priority)}</div></div>
+   <div class="info"><label>Status</label><div>${esc(c.status)}</div></div>
+   <div class="info"><label>Summary</label><div>${esc(c.summary||"-")}</div></div>
+   <h3>Quick Actions</h3>
+   <button class="btn" style="width:100%;margin-bottom:6px" onclick="openManualReply(${c.id})">Balas Manual Agent</button>
+   <button class="btn" style="width:100%;margin-bottom:6px" onclick="escalateConv(${c.id})">Escalate Human</button>
+   <button class="btn" style="width:100%" onclick="captureCurrentAsUnanswered(${c.id})">Masukkan ke Unanswered</button>
+  </div></div>
+ </div>`;
+
+ let s=document.getElementById("inboxSearch"), f=document.getElementById("statusFilter");
+ function filter(){
+   let q=s.value.toLowerCase(),st=f.value;
+   document.getElementById("convList").innerHTML=state.conversations
+    .filter(x=>(!st||x.status===st)&&(!q||x.name.toLowerCase().includes(q)||x.userid.toLowerCase().includes(q)||x.category.toLowerCase().includes(q)||x.messages.some(m=>m.text.toLowerCase().includes(q))))
+    .map(convHTML).join("");
+ }
+ s.oninput=filter; f.onchange=filter;
+
+ let composer=document.getElementById("memberComposer");
+ composer.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendAgentInline(c.id)}};
+
+ setTimeout(()=>{let m=document.getElementById("messages");if(m)m.scrollTop=m.scrollHeight},0);
+}
+
+function openNewMemberModal(){
+ showModal(`<div class="section-title"><h2>Member Baru</h2><button class="btn" onclick="closeModal()">Tutup</button></div>
+ <div class="form">
+  <div><label>Nama Member</label><input id="nmName" placeholder="Contoh: Rian"></div>
+  <div><label>User ID</label><input id="nmUid" placeholder="Contoh: RIAN88"></div>
+  <div><label>Channel</label><select id="nmChannel"><option>Website</option><option>LiveChat</option><option>Telegram</option><option>WhatsApp</option></select></div>
+  <div><label>Priority</label><select id="nmPriority"><option>Low</option><option selected>Medium</option><option>High</option></select></div>
+  <div class="full"><label>Pesan pertama member</label><textarea id="nmText" rows="4" placeholder="Ketik pesan pertama..."></textarea></div>
+  <div class="full"><button class="btn primary" onclick="createNewMember()">Buat & Kirim</button></div>
+ </div>`);
+}
+function createNewMember(){
+ let name=nmName.value.trim()||"Member Baru",uid=nmUid.value.trim()||"-",text=nmText.value.trim();
+ let id=Date.now();
+ let c={id,name,userid:uid,channel:nmChannel.value,category:"General",priority:nmPriority.value,status:"waiting",unread:1,botPaused:false,intent:"general",summary:"Percakapan baru",messages:[]};
+ state.conversations.unshift(c); state.selectedConversation=id; closeModal();
+ if(text){c.messages.push({from:"member",text,time:nowHM()}); handleAutoReply(c,text);}
+ saveAll(); renderInbox(); toast("Member baru masuk ke Live Inbox");
+}
+
+function togglePause(id){let c=state.conversations.find(x=>x.id===id);c.botPaused=!c.botPaused;addAudit(`Bot conversation #${id} ${c.botPaused?"dipause":"diaktifkan"}`);saveAll();window.csccRealtime?.syncMeta(c);renderInbox()}
+function resolveConv(id){let c=state.conversations.find(x=>x.id===id);c.status="resolved";c.unread=0;addAudit(`Conversation #${id} di-resolve`);saveAll();window.csccRealtime?.syncMeta(c);renderInbox();toast("Conversation resolved")}
+function escalateConv(id){let c=state.conversations.find(x=>x.id===id);c.status="human";c.botPaused=true;addAudit(`Conversation #${id} di-escalate ke human`);saveAll();window.csccRealtime?.syncMeta(c);renderInbox();toast("Dialihkan ke operator")}
+function nowHM(){return new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})}
+
+function sendAgentInline(id){
+ let box=document.getElementById("memberComposer"),text=(box?.value||"").trim(); if(!text)return;
+ let c=state.conversations.find(x=>x.id===id); if(!c)return;
+ let msg={from:"agent",text,time:nowHM(),ts:Date.now()};
+ c.messages.push(msg);c.status="human";c.botPaused=true;c.unread=0;c.summary=text.length>70?text.slice(0,70)+"…":text;
+ box.value="";saveAll();renderInbox();
+ window.csccRealtime?.pushMessage(c,msg);window.csccRealtime?.syncMeta(c);
+}
+
+function sendMember(id){
+ let box=document.getElementById("memberComposer"),text=(box?.value||"").trim(); if(!text)return;
+ let c=state.conversations.find(x=>x.id===id);
+ c.messages.push({from:"member",text,time:nowHM()});
+ c.status="waiting"; c.unread=0; c.summary=text.length>70?text.slice(0,70)+"…":text;
+ box.value="";
+ saveAll(); renderInbox();
+ handleAutoReply(c,text);
+}
+
+function handleAutoReply(c,text){
+ if(!state.botOn||c.botPaused){saveAll();return}
+ let typing={from:"bot",text:"Auto Bot sedang mengetik…",time:nowHM(),typing:true};
+ c.messages.push(typing); saveAll(); renderInbox();
+ setTimeout(()=>{
+   c.messages=c.messages.filter(m=>m!==typing);
+   let reply=botReply(c,text);
+   if(!reply){
+      if(state.botConfig.captureUnanswered) captureUnanswered(text,c);
+      if(state.botConfig.autoFallback) reply=state.botConfig.fallback;
+   }
+   if(reply){
+      c.messages.push({from:"bot",text:reply,time:nowHM()});
+      c.status="bot";
+   }
+   saveAll(); renderInbox();
+ }, Math.max(0,Number(state.botConfig.delay)||0));
+}
+
+function openManualReply(id){
+ let c=state.conversations.find(x=>x.id===id);
+ showModal(`<div class="section-title"><h2>Balas Manual Agent</h2><button class="btn" onclick="closeModal()">Tutup</button></div>
+ <div class="form"><div class="full"><label>Balasan Agent</label><textarea id="manualText" rows="6" placeholder="Ketik balasan manual..."></textarea></div>
+ <div class="full"><label>Canned Reply</label><select id="manualCanned"><option value="">Pilih canned reply</option>${state.canned.map(x=>`<option value="${x.id}">${esc(x.shortcut)} - ${esc(x.title)}</option>`).join("")}</select></div>
+ <div class="full"><button class="btn" onclick="useManualCanned()">Masukkan Canned</button> <button class="btn primary" onclick="sendManualAgent(${id})">Kirim sebagai Agent</button></div></div>`);
+}
+function useManualCanned(){let id=+manualCanned.value;if(!id)return;let x=state.canned.find(a=>a.id===id);manualText.value=x.text}
+function sendManualAgent(id){let t=manualText.value.trim();if(!t)return;let c=state.conversations.find(x=>x.id===id);let msg={from:"agent",text:t,time:nowHM(),ts:Date.now()};c.messages.push(msg);c.status="human";c.botPaused=true;c.unread=0;addAudit(`Agent membalas manual conversation #${id}`);saveAll();window.csccRealtime?.pushMessage(c,msg);window.csccRealtime?.syncMeta(c);closeModal();renderInbox()}
+
+function captureCurrentAsUnanswered(id){
+ let c=state.conversations.find(x=>x.id===id);
+ let last=[...c.messages].reverse().find(m=>m.from==="member");
+ if(!last)return toast("Belum ada pesan member");
+ captureUnanswered(last.text,c); toast("Masuk Unanswered Queue");
+}
+function captureUnanswered(text,c){
+ let key=text.trim().toLowerCase();
+ let found=state.unanswered.find(x=>x.text.trim().toLowerCase()===key&&x.status==="open");
+ if(found){found.count=(found.count||1)+1;found.last=nowHM();found.member=c.userid||c.name}
+ else state.unanswered.unshift({id:Date.now()+Math.floor(Math.random()*1000),text:text.trim(),count:1,last:nowHM(),member:c.userid||c.name,status:"open"});
+ addAudit(`Pertanyaan tidak terjawab ditangkap: ${text.slice(0,45)}`);
+ saveAll();
+}
+
+function levenshtein(a,b){a=a.toLowerCase();b=b.toLowerCase();let m=Array.from({length:b.length+1},(_,i)=>[i]);for(let j=0;j<=a.length;j++)m[0][j]=j;for(let i=1;i<=b.length;i++)for(let j=1;j<=a.length;j++)m[i][j]=b[i-1]===a[j-1]?m[i-1][j-1]:1+Math.min(m[i-1][j],m[i][j-1],m[i-1][j-1]);return m[b.length][a.length]}
+function matchRule(text){
+ let t=text.toLowerCase(); let candidates=[];
+ state.rules.filter(r=>r.enabled).forEach(r=>{let score=0;r.triggers.forEach(k=>{if(t.includes(k.toLowerCase()))score=Math.max(score,1);else{for(let w of t.split(/\s+/)){if(k.length>3&&levenshtein(w,k)<=1)score=Math.max(score,.72)}}});if(score)candidates.push({r,score})});
+ candidates.sort((a,b)=>b.r.priority-a.r.priority||b.score-a.score);return candidates[0]?.r||null;
+}
+function qnaScore(text,qa){
+ let t=text.toLowerCase(),best=0;
+ (qa.keywords||[]).forEach(k=>{
+   k=k.toLowerCase();
+   if(t.includes(k)) best=Math.max(best,1);
+   else{
+     let words=t.split(/\s+/);
+     for(let w of words){if(k.length>3&&levenshtein(w,k)<=1)best=Math.max(best,.70)}
+   }
+ });
+ let q=(qa.question||"").toLowerCase();
+ if(q&&t===q)best=1;
+ return best;
+}
+function matchQnA(text){
+ let hits=state.qna.filter(q=>q.enabled!==false).map(q=>({q,score:qnaScore(text,q)})).filter(x=>x.score>0);
+ hits.sort((a,b)=>b.score-a.score); return hits[0]?.q||null;
+}
+function botReply(c,text){
+ let uid=text.match(/(?:userid|user id|id)\s*:\s*([a-z0-9_-]+)/i); if(uid)c.userid=uid[1];
+ if(/\b(bukti|transfer|receipt|struk)\b/i.test(text))c.proof=true;
+
+ let r=matchRule(text);
+ if(r){
+   c.intent=r.intent;c.category=r.category;
+   if(r.intent==="withdraw"){
+     if(!c.userid||c.userid==="-")return r.response[Math.floor(Math.random()*r.response.length)];
+     return r.after||"Baik bosku, akan kami cek.";
+   }
+   if(r.intent==="deposit"){
+     if(!c.proof)return r.response[Math.floor(Math.random()*r.response.length)];
+     return r.after||"Baik bosku, bukti sudah diterima. Akan kami cek.";
+   }
+   return r.response[Math.floor(Math.random()*r.response.length)];
+ }
+ let qa=matchQnA(text);
+ if(qa){c.intent="qna";c.category=qa.category||"General";return qa.answer}
+ return null;
+}
+
+function renderMembers(){
+ document.getElementById("page-members").innerHTML=`<div class="section-title"><h2>Members</h2></div><div class="card table-wrap"><table class="table"><thead><tr><th>Nama</th><th>User ID</th><th>Channel</th><th>Issue</th><th>Status</th></tr></thead><tbody>${state.conversations.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.userid)}</td><td>${esc(c.channel)}</td><td>${esc(c.category)}</td><td>${statusBadge(c.status)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function renderBot(){
+ document.getElementById("page-bot").innerHTML=`
+ <div class="section-title"><h2>Bot Automation</h2><button class="btn primary" onclick="openRuleModal()">+ Tambah Rule Lanjutan</button></div>
+
+ <div class="card" style="padding:12px;margin-bottom:12px">
+  <div class="section-title" style="margin-top:0"><h2>Global Bot Control</h2><span class="badge ${state.botOn?"green":"red"}">${state.botOn?"BOT ON":"BOT OFF"}</span></div>
+  <div class="form">
+   <div><label>Delay balasan (ms)</label><input id="cfgDelay" type="number" value="${esc(state.botConfig.delay)}"></div>
+   <div><label>Simpan pertanyaan tak terjawab</label><select id="cfgCapture"><option value="true" ${state.botConfig.captureUnanswered?"selected":""}>Ya</option><option value="false" ${!state.botConfig.captureUnanswered?"selected":""}>Tidak</option></select></div>
+   <div class="full"><label>Fallback jika bot tidak tahu jawaban</label><textarea id="cfgFallback" rows="3">${esc(state.botConfig.fallback)}</textarea></div>
+   <div class="full"><button class="btn primary" onclick="saveBotConfig()">Simpan Pengaturan Bot</button></div>
+  </div>
+ </div>
+
+ <div class="card" style="padding:12px;margin-bottom:12px">
+  <div class="section-title" style="margin-top:0"><h2>Rule Tester</h2></div>
+  <div class="toolbar"><input id="testMsg" style="flex:1" placeholder="Contoh: wd saya belum masuk, userid: ABC88"><button class="btn primary" onclick="testRule()">Test</button></div>
+  <div id="testResult" class="codeish">Masukkan pesan untuk melihat rule/Q&A yang cocok.</div>
+ </div>
+
+ <div class="rules">${state.rules.sort((a,b)=>b.priority-a.priority).map(r=>`<div class="card rule">
+  <div class="rule-top"><div><div class="rule-name">${esc(r.name)} ${r.enabled?'<span class="badge green">ON</span>':'<span class="badge red">OFF</span>'}</div><div class="rule-meta">${esc(r.category)} • priority ${r.priority} • intent ${esc(r.intent)}</div></div>
+  <div><button class="btn" onclick="toggleRule(${r.id})">${r.enabled?"Disable":"Enable"}</button> <button class="btn" onclick="openRuleModal(${r.id})">Edit</button> <button class="btn danger" onclick="deleteRule(${r.id})">Hapus</button></div></div>
+  <div class="rule-body"><div><div class="sub">Triggers</div><div class="codeish">${r.triggers.map(esc).join(", ")}</div></div><div><div class="sub">Response</div><div class="codeish">${esc(r.response[0]||"")}</div></div></div>
+ </div>`).join("")}</div>`;
+}
+function saveBotConfig(){
+ state.botConfig.delay=Math.max(0,+cfgDelay.value||0);
+ state.botConfig.captureUnanswered=cfgCapture.value==="true";
+ state.botConfig.fallback=cfgFallback.value.trim()||seedBotConfig.fallback;
+ saveAll();addAudit("Pengaturan Auto Bot diperbarui");toast("Pengaturan bot tersimpan");
+}
+function testRule(){
+ let t=document.getElementById("testMsg").value;
+ let r=matchRule(t),q=r?null:matchQnA(t);
+ document.getElementById("testResult").innerHTML=r
+ ?`Matched Rule: <b>${esc(r.name)}</b><br>Intent: ${esc(r.intent)}<br>Priority: ${r.priority}<br>Preview: ${esc(r.response[0])}`
+ :q?`Matched Q&A: <b>${esc(q.question)}</b><br>Kategori: ${esc(q.category)}<br>Preview: ${esc(q.answer)}`
+ :`<span style="color:#ffcf80">Tidak ada jawaban.</span> Pesan ini akan masuk ke <b>Unanswered Queue</b> dan menerima fallback.`;
+}
+function toggleRule(id){let r=state.rules.find(x=>x.id===id);r.enabled=!r.enabled;addAudit(`Rule ${r.name} ${r.enabled?"diaktifkan":"dinonaktifkan"}`);saveAll();renderBot()}
+function deleteRule(id){if(!confirm("Hapus rule ini?"))return;state.rules=state.rules.filter(x=>x.id!==id);saveAll();renderBot();toast("Rule dihapus")}
+function openRuleModal(id){
+ let r=id?state.rules.find(x=>x.id===id):{id:Date.now(),name:"",category:"General",priority:50,triggers:[],intent:"general",required:[],response:[""],enabled:true};
+ showModal(`<div class="section-title"><h2>${id?"Edit":"Tambah"} Rule</h2><button class="btn" onclick="closeModal()">Tutup</button></div>
+ <div class="form">
+ <div><label>Nama Rule</label><input id="rName" value="${esc(r.name)}"></div>
+ <div><label>Kategori</label><input id="rCat" value="${esc(r.category)}"></div>
+ <div><label>Priority</label><input id="rPri" type="number" value="${r.priority}"></div>
+ <div><label>Intent</label><input id="rIntent" value="${esc(r.intent)}"></div>
+ <div class="full"><label>Trigger (pisahkan koma)</label><input id="rTrig" value="${esc(r.triggers.join(", "))}"></div>
+ <div class="full"><label>Response utama</label><textarea id="rResp" rows="4">${esc(r.response[0]||"")}</textarea></div>
+ <div class="full"><button class="btn primary" onclick="saveRule(${r.id},${id?1:0})">Simpan Rule</button></div></div>`);
+}
+function saveRule(id,edit){
+ let obj={id,name:document.getElementById("rName").value,category:document.getElementById("rCat").value,priority:+document.getElementById("rPri").value,intent:document.getElementById("rIntent").value,triggers:document.getElementById("rTrig").value.split(",").map(x=>x.trim()).filter(Boolean),required:[],response:[document.getElementById("rResp").value],enabled:true};
+ if(edit){let i=state.rules.findIndex(x=>x.id===id);obj.enabled=state.rules[i].enabled;obj.after=state.rules[i].after;state.rules[i]=obj}else state.rules.push(obj);
+ addAudit(`Rule ${obj.name} ${edit?"diperbarui":"ditambahkan"}`);saveAll();closeModal();renderBot();toast("Rule tersimpan")
+}
+
+function renderCrudPage(type,title,items,cols){
+ let addFn={kb:"openKBModal",canned:"openCannedModal",issues:"openIssueModal"}[type];
+ document.getElementById("page-"+type).innerHTML=`<div class="section-title"><h2>${title}</h2><button class="btn primary" onclick="${addFn}()">+ Tambah</button></div><div class="card table-wrap"><table class="table"><thead><tr>${cols.map(c=>`<th>${c[0]}</th>`).join("")}<th>Aksi</th></tr></thead><tbody>${items.map(x=>`<tr>${cols.map(c=>`<td>${esc(x[c[1]])}</td>`).join("")}<td><button class="btn" onclick="${addFn}(${x.id})">Edit</button></td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function renderQnA(){
+ document.getElementById("page-qna").innerHTML=`
+ <div class="section-title"><div><h2>Q&A Auto Bot</h2><div class="sub">Menu paling mudah untuk menambahkan pertanyaan member dan jawaban Auto Bot.</div></div><button class="btn primary" onclick="openQnaModal()">+ Tambah Pertanyaan & Jawaban</button></div>
+ <div class="card" style="padding:12px;margin-bottom:12px">
+  <div class="toolbar"><input id="qnaSearch" style="flex:1" placeholder="Cari pertanyaan, keyword, atau jawaban..."></div>
+ </div>
+ <div id="qnaList" class="rules">${state.qna.map(q=>qnaCard(q)).join("")}</div>`;
+ qnaSearch.oninput=()=>{let x=qnaSearch.value.toLowerCase();qnaList.innerHTML=state.qna.filter(q=>!x||q.question.toLowerCase().includes(x)||q.answer.toLowerCase().includes(x)||(q.keywords||[]).join(" ").toLowerCase().includes(x)).map(q=>qnaCard(q)).join("")}
+}
+function qnaCard(q){return `<div class="card rule">
+ <div class="rule-top"><div><div class="rule-name">${esc(q.question)} ${q.enabled!==false?'<span class="badge green">ON</span>':'<span class="badge red">OFF</span>'}</div><div class="rule-meta">${esc(q.category||"General")} • ${(q.keywords||[]).length} keyword</div></div>
+ <div><button class="btn" onclick="toggleQna(${q.id})">${q.enabled!==false?"Disable":"Enable"}</button> <button class="btn" onclick="openQnaModal(${q.id})">Edit</button> <button class="btn danger" onclick="deleteQna(${q.id})">Hapus</button></div></div>
+ <div class="rule-body"><div><div class="sub">Kata / contoh pertanyaan</div><div class="codeish">${(q.keywords||[]).map(esc).join(", ")}</div></div><div><div class="sub">Jawaban Auto Bot</div><div class="codeish">${esc(q.answer)}</div></div></div>
+ </div>`}
+function openQnaModal(id,unansweredId){
+ let q=id?state.qna.find(x=>x.id===id):{id:Date.now(),question:"",keywords:[],category:"General",answer:"",enabled:true};
+ if(unansweredId){let u=state.unanswered.find(x=>x.id===unansweredId);if(u){q.question=u.text;q.keywords=[u.text];q._unansweredId=u.id}}
+ showModal(`<div class="section-title"><h2>${id?"Edit":"Tambah"} Q&A Auto Bot</h2><button class="btn" onclick="closeModal()">Tutup</button></div>
+ <div class="form">
+  <div class="full"><label>Contoh pertanyaan member</label><input id="qaQuestion" value="${esc(q.question)}" placeholder="Contoh: min rekening saya sudah ganti"></div>
+  <div><label>Kategori</label><input id="qaCategory" value="${esc(q.category||"General")}"></div>
+  <div><label>Status</label><select id="qaEnabled"><option value="true" ${q.enabled!==false?"selected":""}>Aktif</option><option value="false" ${q.enabled===false?"selected":""}>Nonaktif</option></select></div>
+  <div class="full"><label>Keyword / variasi pertanyaan (pisahkan koma)</label><input id="qaKeywords" value="${esc((q.keywords||[]).join(", "))}" placeholder="ganti rekening, rekening berubah, ubah rekening"></div>
+  <div class="full"><label>Jawaban Auto Bot</label><textarea id="qaAnswer" rows="6" placeholder="Tulis jawaban yang akan dikirim otomatis...">${esc(q.answer)}</textarea></div>
+  <div class="full"><button class="btn primary" onclick="saveQna(${q.id},${id?1:0},${q._unansweredId||0})">Simpan Q&A</button></div>
+ </div>`);
+}
+function saveQna(id,edit,unansweredId){
+ let q={id,question:qaQuestion.value.trim(),category:qaCategory.value.trim()||"General",keywords:qaKeywords.value.split(",").map(x=>x.trim()).filter(Boolean),answer:qaAnswer.value.trim(),enabled:qaEnabled.value==="true"};
+ if(!q.question||!q.answer)return toast("Pertanyaan dan jawaban wajib diisi");
+ if(!q.keywords.length)q.keywords=[q.question];
+ if(edit)state.qna[state.qna.findIndex(x=>x.id===id)]=q;else state.qna.unshift(q);
+ if(unansweredId){let u=state.unanswered.find(x=>x.id===unansweredId);if(u)u.status="trained"}
+ addAudit(`Q&A ${edit?"diperbarui":"ditambahkan"}: ${q.question.slice(0,45)}`);saveAll();closeModal();renderQnA();toast("Q&A Auto Bot tersimpan")
+}
+function toggleQna(id){let q=state.qna.find(x=>x.id===id);q.enabled=q.enabled===false?true:false;saveAll();renderQnA()}
+function deleteQna(id){if(!confirm("Hapus Q&A ini?"))return;state.qna=state.qna.filter(x=>x.id!==id);saveAll();renderQnA()}
+function renderUnanswered(){
+ let open=state.unanswered.filter(x=>x.status==="open").length;
+ document.getElementById("page-unanswered").innerHTML=`
+ <div class="section-title"><div><h2>Unanswered Queue</h2><div class="sub">Pertanyaan yang tidak dapat dijawab Auto Bot akan otomatis masuk ke sini.</div></div><span class="badge ${open?"amber":"green"}">${open} perlu jawaban</span></div>
+ <div class="card table-wrap"><table class="table"><thead><tr><th>Pertanyaan Member</th><th>Member</th><th>Muncul</th><th>Terakhir</th><th>Status</th><th>Aksi</th></tr></thead>
+ <tbody>${state.unanswered.length?state.unanswered.map(u=>`<tr><td style="max-width:440px">${esc(u.text)}</td><td>${esc(u.member||"-")}</td><td>${u.count||1}x</td><td>${esc(u.last||"-")}</td><td><span class="badge ${u.status==="open"?"amber":"green"}">${esc(u.status)}</span></td><td>${u.status==="open"?`<button class="btn primary" onclick="openQnaModal(null,${u.id})">Buat Jawaban</button> <button class="btn" onclick="dismissUnanswered(${u.id})">Abaikan</button>`:"<span class='sub'>Selesai</span>"}</td></tr>`).join(""):`<tr><td colspan="6">Belum ada pertanyaan tak terjawab.</td></tr>`}</tbody></table></div>`;
+}
+function dismissUnanswered(id){let u=state.unanswered.find(x=>x.id===id);u.status="dismissed";saveAll();renderUnanswered()}
+
+function renderKB(){renderCrudPage("kb","Knowledge Base",state.kb,[["Judul","title"],["Kategori","category"],["Tags","tags"],["Isi","content"]])}
+function openKBModal(id){let x=id?state.kb.find(a=>a.id===id):{id:Date.now(),title:"",category:"General",tags:"",content:""};showModal(`<div class="section-title"><h2>Knowledge Article</h2><button class="btn" onclick="closeModal()">Tutup</button></div><div class="form"><div><label>Judul</label><input id="kTitle" value="${esc(x.title)}"></div><div><label>Kategori</label><input id="kCat" value="${esc(x.category)}"></div><div class="full"><label>Tags</label><input id="kTags" value="${esc(x.tags)}"></div><div class="full"><label>Isi</label><textarea id="kContent" rows="8">${esc(x.content)}</textarea></div><div class="full"><button class="btn primary" onclick="saveKB(${x.id},${id?1:0})">Simpan</button></div></div>`)}
+function saveKB(id,e){let x={id,title:kTitle.value,category:kCat.value,tags:kTags.value,content:kContent.value};if(e)state.kb[state.kb.findIndex(a=>a.id===id)]=x;else state.kb.push(x);saveAll();closeModal();renderKB()}
+
+function renderCanned(){renderCrudPage("canned","Canned Replies",state.canned,[["Shortcut","shortcut"],["Judul","title"],["Kategori","category"],["Pesan","text"]])}
+function openCannedModal(id){let x=id?state.canned.find(a=>a.id===id):{id:Date.now(),shortcut:"/",title:"",category:"General",text:""};showModal(`<div class="section-title"><h2>Canned Reply</h2><button class="btn" onclick="closeModal()">Tutup</button></div><div class="form"><div><label>Shortcut</label><input id="cShort" value="${esc(x.shortcut)}"></div><div><label>Judul</label><input id="cTitle" value="${esc(x.title)}"></div><div><label>Kategori</label><input id="cCat" value="${esc(x.category)}"></div><div class="full"><label>Pesan</label><textarea id="cText" rows="6">${esc(x.text)}</textarea></div><div class="full"><button class="btn primary" onclick="saveCanned(${x.id},${id?1:0})">Simpan</button></div></div>`)}
+function saveCanned(id,e){let x={id,shortcut:cShort.value,title:cTitle.value,category:cCat.value,text:cText.value};if(e)state.canned[state.canned.findIndex(a=>a.id===id)]=x;else state.canned.push(x);saveAll();closeModal();renderCanned()}
+
+function renderIssues(){renderCrudPage("issues","Issues & Categories",state.issues,[["Kategori","name"],["SLA","sla"],["Priority","priority"],["Bot","bot"]])}
+function openIssueModal(id){let x=id?state.issues.find(a=>a.id===id):{id:Date.now(),name:"",sla:"10 menit",priority:"Medium",bot:true};showModal(`<div class="section-title"><h2>Issue Category</h2><button class="btn" onclick="closeModal()">Tutup</button></div><div class="form"><div><label>Nama</label><input id="iName" value="${esc(x.name)}"></div><div><label>SLA</label><input id="iSla" value="${esc(x.sla)}"></div><div><label>Priority</label><select id="iPri"><option ${x.priority==="Low"?"selected":""}>Low</option><option ${x.priority==="Medium"?"selected":""}>Medium</option><option ${x.priority==="High"?"selected":""}>High</option></select></div><div><label>Bot Allowed</label><select id="iBot"><option value="true" ${x.bot?"selected":""}>Yes</option><option value="false" ${!x.bot?"selected":""}>No</option></select></div><div class="full"><button class="btn primary" onclick="saveIssue(${x.id},${id?1:0})">Simpan</button></div></div>`)}
+function saveIssue(id,e){let x={id,name:iName.value,sla:iSla.value,priority:iPri.value,bot:iBot.value==="true"};if(e)state.issues[state.issues.findIndex(a=>a.id===id)]=x;else state.issues.push(x);saveAll();closeModal();renderIssues()}
+
+function renderChannels(){
+ let channels=[["Website Chat","Connected","Firebase Realtime"],["LiveChat","Disconnected","API/Webhook"],["Telegram","Disconnected","Bot API"],["WhatsApp","Disconnected","Cloud API"],["Custom Webhook","Disconnected","REST/Webhook"]];
+ document.getElementById("page-channels").innerHTML=`<div class="section-title"><h2>Channels</h2></div><div class="row" style="grid-template-columns:repeat(2,1fr)">${channels.map(c=>`<div class="card" style="padding:14px"><div class="section-title" style="margin:0"><h2>${c[0]}</h2>${c[1]==="Connected"?'<span class="badge green">Connected</span>':'<span class="badge red">Disconnected</span>'}</div><div class="sub">${c[2]}</div><div style="margin-top:12px"><button class="btn">Connection Settings</button></div></div>`).join("")}</div><div class="card" style="padding:14px;margin-top:12px"><b>Catatan Integrasi</b><p class="sub">Website Chat sudah disiapkan untuk menerima percakapan member asli melalui Firebase Realtime Database. Telegram/WhatsApp/LiveChat tetap membutuhkan connector/API masing-masing.</p></div>`;
+}
+function renderOperators(){document.getElementById("page-operators").innerHTML=`<div class="section-title"><h2>Operators / Admin</h2></div><div class="card table-wrap"><table class="table"><thead><tr><th>Nama</th><th>Role</th><th>Status</th><th>Active Chats</th><th>Resolved Today</th></tr></thead><tbody>${state.operators.map(o=>`<tr><td>${esc(o.name)}</td><td>${esc(o.role)}</td><td><span class="badge ${o.status==="online"?"green":o.status==="away"?"amber":"red"}">${o.status}</span></td><td>${o.active}</td><td>${o.resolved}</td></tr>`).join("")}</tbody></table></div>`}
+function renderAnalytics(){document.getElementById("page-analytics").innerHTML=`<div class="section-title"><h2>Analytics</h2><span class="pill">Today</span></div><div class="grid-kpi">${[["Automation Rate","82%"],["Escalation","14%"],["Avg First Response","18s"],["Avg Resolution","4m 12s"],["Low Confidence","7"],["Unmatched","11"]].map(x=>`<div class="card kpi"><div class="label">${x[0]}</div><div class="num">${x[1]}</div></div>`).join("")}</div><div class="card" style="margin-top:12px"><div class="chart">${[32,48,70,62,88,76,58,81,92,74,67,85].map((h,i)=>`<div class="bar" style="height:${h}%"><span>${i+1}</span></div>`).join("")}</div></div>`}
+function renderAudit(){document.getElementById("page-audit").innerHTML=`<div class="section-title"><h2>Audit Log</h2></div><div class="card table-wrap"><table class="table"><thead><tr><th>Time</th><th>User</th><th>Action</th></tr></thead><tbody>${state.audit.map(a=>`<tr><td>${esc(a.time)}</td><td>${esc(a.user)}</td><td>${esc(a.action)}</td></tr>`).join("")}</tbody></table></div>`}
+function renderSettings(){document.getElementById("page-settings").innerHTML=`<div class="section-title"><h2>Settings</h2></div><div class="card" style="padding:14px"><div class="form"><div><label>Nama Panel</label><input value="CS Command Center"></div><div><label>Default Reply Delay</label><input value="0 detik"></div><div><label>Confidence Threshold</label><input value="70%"></div><div><label>Max Consecutive Bot Reply</label><input value="3"></div><div class="full"><label>Fallback Message</label><textarea>Baik bosku, kendala akan kami teruskan ke operator.</textarea></div></div><div style="margin-top:12px"><button class="btn" onclick="exportData()">Export JSON</button> <button class="btn danger" onclick="resetData()">Reset Demo Data</button></div></div>`}
+function exportData(){let blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="cs-command-center-backup.json";a.click();URL.revokeObjectURL(a.href)}
+function resetData(){if(!confirm("Reset semua data lokal?"))return;Object.keys(localStorage).filter(k=>k.startsWith("cscc_")).forEach(k=>localStorage.removeItem(k));location.reload()}
+function showModal(html){document.getElementById("modalContent").innerHTML=html;document.getElementById("modal").classList.add("show")}
+function closeModal(){document.getElementById("modal").classList.remove("show")}
+
+document.getElementById("botSwitch").onclick=function(){state.botOn=!state.botOn;this.classList.toggle("on",state.botOn);document.getElementById("botStatusPill").textContent="BOT: "+(state.botOn?"ON":"OFF");addAudit(`Bot global ${state.botOn?"diaktifkan":"dinonaktifkan"}`);saveAll();toast("Bot "+(state.botOn?"aktif":"nonaktif"))}
+document.getElementById("botSwitch").classList.toggle("on",state.botOn);document.getElementById("botStatusPill").textContent="BOT: "+(state.botOn?"ON":"OFF");
+document.getElementById("globalSearch").oninput=function(){let q=this.value.toLowerCase();if(q.length<2)return;let c=state.conversations.find(x=>x.name.toLowerCase().includes(q)||x.userid.toLowerCase().includes(q));if(c){state.selectedConversation=c.id;}}
+document.getElementById("modal").onclick=e=>{if(e.target.id==="modal")closeModal()}
+renderNav();renderOverview();
+</script>
+
+<!-- Firebase Realtime bridge: isi FIREBASE_CONFIG yang sama seperti member-chat.html -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: "PASTE_FIREBASE_API_KEY",
+  authDomain: "PASTE_PROJECT_ID.firebaseapp.com",
+  databaseURL: "https://PASTE_PROJECT_ID-default-rtdb.firebaseio.com",
+  projectId: "PASTE_PROJECT_ID",
+  appId: "PASTE_FIREBASE_APP_ID"
+};
+
+(function(){
+  const configured=!Object.values(FIREBASE_CONFIG).some(v=>String(v).includes("PASTE_"));
+  const overlay=document.getElementById("firebaseLoginOverlay"),err=document.getElementById("fbAdminError"),btn=document.getElementById("fbAdminLoginBtn");
+  if(!configured){err.textContent="Firebase belum dikonfigurasi. Isi FIREBASE_CONFIG pada file ini terlebih dahulu.";btn.disabled=true;return;}
+  if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+  const auth=firebase.auth(), db=firebase.database();
+  const convRoot=db.ref("cscc/conversations");
+  let bound={};
+
+  const normalizeMessages=(obj)=>Object.entries(obj||{}).map(([key,m])=>({...m,_firebaseKey:key})).sort((a,b)=>(a.ts||0)-(b.ts||0));
+  const normalizeConversation=(uid,v)=>({
+    id:Number(v.id)||Math.floor(Date.now()*1000+Math.random()*999),
+    _firebaseUid:uid,
+    name:v.name||"Member",userid:v.userid||"-",channel:v.channel||"Website",category:v.category||"General",
+    priority:v.priority||"Medium",status:v.status||"waiting",unread:Number(v.unread)||0,botPaused:!!v.botPaused,
+    intent:v.intent||"general",proof:!!v.proof,summary:v.summary||"Percakapan baru",messages:normalizeMessages(v.messages)
+  });
+  const metaFrom=(c)=>({id:c.id,name:c.name||"Member",userid:c.userid||"-",channel:c.channel||"Website",category:c.category||"General",priority:c.priority||"Medium",status:c.status||"waiting",unread:Number(c.unread)||0,botPaused:!!c.botPaused,intent:c.intent||"general",proof:!!c.proof,summary:c.summary||"",updatedAt:firebase.database.ServerValue.TIMESTAMP});
+
+  function updateBadge(){
+    const total=state.conversations.reduce((n,c)=>n+(Number(c.unread)||0),0);
+    const b=document.querySelector('[data-page="inbox"]');
+    if(b)b.innerHTML='Live Inbox'+(total?` <span class="badge red" style="float:right">${total}</span>`:'');
+    const pill=document.getElementById('botStatusPill');
+    if(pill&&auth.currentUser)pill.innerHTML=`<span class="realtime-dot"></span>REALTIME • BOT: ${state.botOn?'ON':'OFF'}`;
+  }
+
+  function renderCurrent(){
+    saveAll();
+    const active=document.querySelector('.page.active')?.id?.replace('page-','')||'overview';
+    if(active==='inbox')renderInbox(); else if(active==='overview')renderOverview(); else if(active==='members')renderMembers();
+    updateBadge();
+  }
+
+  function bindConversation(uid){
+    if(bound[uid])return; bound[uid]=true;
+    db.ref(`cscc/conversations/${uid}/messages`).on('child_added',snap=>{
+      const m=snap.val()||{}, key=snap.key;
+      let c=state.conversations.find(x=>x._firebaseUid===uid); if(!c)return;
+      if(!c.messages.some(x=>x._firebaseKey===key))c.messages.push({...m,_firebaseKey:key});
+      c.messages.sort((a,b)=>(a.ts||0)-(b.ts||0));
+      if(m.from==='member' && m.processed!==true){
+        c.status='waiting';c.unread=Math.max(1,Number(c.unread)||0);c.summary=m.text||'Pesan member';
+        renderCurrent();
+        handleAutoReply(c,m.text||'');
+        setTimeout(()=>db.ref(`cscc/conversations/${uid}/messages/${key}/processed`).set(true),Math.max(250,Number(state.botConfig.delay)||0)+400);
+      } else renderCurrent();
+    });
+  }
+
+  window.csccRealtime={
+    pushMessage(c,msg){
+      if(!c?._firebaseUid)return;
+      const clean={from:msg.from||'agent',text:msg.text||'',time:msg.time||nowHM(),ts:msg.ts||Date.now(),processed:true};
+      db.ref(`cscc/conversations/${c._firebaseUid}/messages`).push(clean);
+    },
+    syncMeta(c){if(c?._firebaseUid)db.ref(`cscc/conversations/${c._firebaseUid}`).update(metaFrom(c));}
+  };
+
+  let realtimeStarted=false;
+  function startRealtime(){
+    if(realtimeStarted)return; realtimeStarted=true;
+    convRoot.on('value',snap=>{
+      const all=snap.val()||{};
+      const previousSelected=state.selectedConversation;
+      state.conversations=Object.entries(all).map(([uid,v])=>normalizeConversation(uid,v)).sort((a,b)=>{
+        const at=a.messages.at(-1)?.ts||0,bt=b.messages.at(-1)?.ts||0;return bt-at;
+      });
+      if(previousSelected && state.conversations.some(c=>c.id===previousSelected))state.selectedConversation=previousSelected;
+      else state.selectedConversation=state.conversations[0]?.id||null;
+      Object.keys(all).forEach(bindConversation);
+      renderCurrent();
+    },e=>{err.textContent='Realtime Database ditolak: '+(e.message||e.code);});
+  }
+
+  btn.onclick=()=>{
+    err.textContent='';btn.disabled=true;btn.textContent='Memeriksa...';
+    auth.signInWithEmailAndPassword(document.getElementById('fbAdminEmail').value.trim(),document.getElementById('fbAdminPassword').value)
+      .catch(e=>{err.textContent='Login gagal: '+(e.message||e.code);btn.disabled=false;btn.textContent='Masuk Dashboard';});
+  };
+  document.getElementById('fbAdminPassword').addEventListener('keydown',e=>{if(e.key==='Enter')btn.click()});
+  auth.onAuthStateChanged(user=>{
+    if(user){overlay.classList.add('hidden');startRealtime();updateBadge();}
+    else overlay.classList.remove('hidden');
+  });
+})();
+</script>
+
+</body>
+</html>
