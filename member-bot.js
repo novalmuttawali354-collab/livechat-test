@@ -1,6 +1,6 @@
-/* CSCC Member Auto Bot v1
+/* CSCC Member Auto Bot v2
    Runs inside member-chat page, independent of admin login.
-   One member message = max one bot reply.
+   Hard rule: one member message key = one deterministic bot reply node.
 */
 (function(){
   'use strict';
@@ -34,50 +34,21 @@
   function norm(s){return String(s||'').toLowerCase().trim().replace(/\s+/g,' ')}
   function lev(a,b){a=norm(a);b=norm(b);const m=Array.from({length:b.length+1},(_,i)=>[i]);for(let j=0;j<=a.length;j++)m[0][j]=j;for(let i=1;i<=b.length;i++)for(let j=1;j<=a.length;j++)m[i][j]=b[i-1]===a[j-1]?m[i-1][j-1]:1+Math.min(m[i-1][j],m[i][j-1],m[i-1][j-1]);return m[b.length][a.length]}
   function exactWordMatch(t,k){if(!k)return false;if(k.includes(' '))return t.includes(k);return new RegExp('(^|\\s|[^a-z0-9])'+k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($|\\s|[^a-z0-9])','i').test(t)}
+  function safeKey(k){return String(k||'').replace(/[.#$\[\]\/]/g,'_')}
 
-  function ruleScore(text,r){
-    const t=norm(text);let best=0;
-    for(const raw of (r.triggers||[])){
-      const k=norm(raw);if(!k)continue;
-      if(exactWordMatch(t,k))best=Math.max(best,k.length>3?1:.92);
-      else if(k.length>3){for(const w of t.split(/\s+/)){if(lev(w,k)<=1)best=Math.max(best,.72)}}
-    }
-    return best;
-  }
-  function matchRule(text){
-    const hits=(botRules||[]).filter(r=>r&&r.enabled!==false).map(r=>({r,score:ruleScore(text,r)})).filter(x=>x.score>0);
-    hits.sort((a,b)=>(Number(b.r.priority)||0)-(Number(a.r.priority)||0)||b.score-a.score);
-    return hits[0]?.r||null;
-  }
-  function qnaScore(text,q){
-    const t=norm(text);let best=0;
-    for(const raw of (q.keywords||[])){
-      const k=norm(raw);if(!k)continue;
-      if(t===k)best=Math.max(best,1.1);else if(exactWordMatch(t,k))best=Math.max(best,1);
-      else if(k.length>3){for(const w of t.split(/\s+/)){if(lev(w,k)<=1)best=Math.max(best,.70)}}
-    }
-    if(norm(q.question)===t)best=Math.max(best,1.2);
-    return best;
-  }
-  function matchQna(text){
-    const hits=(botQna||[]).filter(q=>q&&q.enabled!==false).map(q=>({q,score:qnaScore(text,q)})).filter(x=>x.score>0);
-    hits.sort((a,b)=>b.score-a.score);return hits[0]?.q||null;
-  }
+  function ruleScore(text,r){const t=norm(text);let best=0;for(const raw of (r.triggers||[])){const k=norm(raw);if(!k)continue;if(exactWordMatch(t,k))best=Math.max(best,k.length>3?1:.92);else if(k.length>3){for(const w of t.split(/\s+/)){if(lev(w,k)<=1)best=Math.max(best,.72)}}}return best}
+  function matchRule(text){const hits=(botRules||[]).filter(r=>r&&r.enabled!==false).map(r=>({r,score:ruleScore(text,r)})).filter(x=>x.score>0);hits.sort((a,b)=>(Number(b.r.priority)||0)-(Number(a.r.priority)||0)||b.score-a.score);return hits[0]?.r||null}
+  function qnaScore(text,q){const t=norm(text);let best=0;for(const raw of (q.keywords||[])){const k=norm(raw);if(!k)continue;if(t===k)best=Math.max(best,1.1);else if(exactWordMatch(t,k))best=Math.max(best,1);else if(k.length>3){for(const w of t.split(/\s+/)){if(lev(w,k)<=1)best=Math.max(best,.70)}}}if(norm(q.question)===t)best=Math.max(best,1.2);return best}
+  function matchQna(text){const hits=(botQna||[]).filter(q=>q&&q.enabled!==false).map(q=>({q,score:qnaScore(text,q)})).filter(x=>x.score>0);hits.sort((a,b)=>b.score-a.score);return hits[0]?.q||null}
 
-  async function getConversationState(){
-    try{return (await currentRef.once('value')).val()||{}}catch(_){return{}}
-  }
+  async function getConversationState(){try{return (await currentRef.once('value')).val()||{}}catch(_){return{}}}
   async function decide(text){
     const conv=await getConversationState();
     if(conv.botPaused===true||conv.status==='human'||conv.status==='resolved')return null;
-    const uid=String(conv.userid||'').trim();
-    const r=matchRule(text);
+    const uid=String(conv.userid||'').trim(),r=matchRule(text);
     if(r){
       if(r.intent==='withdraw')return (!uid||uid==='-')?(r.response?.[0]||'Baik bosku, kirim User ID terlebih dahulu ya.'):(r.after||'Baik bosku, akan kami cek.');
-      if(r.intent==='deposit'){
-        const hasProof=Boolean(conv.proof)||/\b(bukti|transfer|receipt|struk)\b/i.test(text);
-        return hasProof?(r.after||'Baik bosku, bukti sudah diterima. Akan kami cek.'):(r.response?.[0]||'Silakan kirim bukti transfer terlebih dahulu bosku.');
-      }
+      if(r.intent==='deposit'){const hasProof=Boolean(conv.proof)||/\b(bukti|transfer|receipt|struk)\b/i.test(text);return hasProof?(r.after||'Baik bosku, bukti sudah diterima. Akan kami cek.'):(r.response?.[0]||'Silakan kirim bukti transfer terlebih dahulu bosku.');}
       const arr=(r.response||[]).filter(Boolean);return arr.length?arr[Math.floor(Math.random()*arr.length)]:null;
     }
     const q=matchQna(text);if(q?.answer)return q.answer;
@@ -91,7 +62,7 @@
     const claimRef=msgRef.child('memberBotClaim');
     let committed=false;
     try{
-      const tr=await claimRef.transaction(v=>v?undefined:{at:firebase.database.ServerValue.TIMESTAMP,engine:'member-v1'});
+      const tr=await claimRef.transaction(v=>v?undefined:{at:firebase.database.ServerValue.TIMESTAMP,engine:'member-v2'});
       committed=tr.committed;
     }catch(_){return}
     if(!committed)return;
@@ -103,38 +74,34 @@
       if(typeof $==='function' && $('typing'))$('typing').textContent='Auto Bot sedang mengetik…';
       await new Promise(r=>setTimeout(r,Math.max(0,Number(botConfig.delay)||0)));
 
-      // extra duplicate shield: same sourceMessageKey must never get two bot replies
-      const existing=await currentRef.child('messages').orderByChild('sourceMessageKey').equalTo(key).once('value');
-      let already=false;existing.forEach(s=>{if((s.val()||{}).from==='bot')already=true});
-      if(already)return;
+      /* Deterministic reply node. Re-running this exact source message can only
+         update the same node, never create a second chat bubble. */
+      const replyKey='bot_'+safeKey(key);
+      const replyRef=currentRef.child('messages/'+replyKey);
+      const replyObj={from:'bot',text:reply,time:typeof nowHM==='function'?nowHM():new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}),ts:firebase.database.ServerValue.TIMESTAMP,processed:true,sourceMessageKey:key,engine:'member-v2'};
+      const result=await replyRef.transaction(existing=>existing?undefined:replyObj);
+      if(!result.committed){
+        console.info('[MemberBot] duplicate reply prevented for',key);
+        if(typeof $==='function' && $('typing'))$('typing').textContent='';
+        return;
+      }
 
-      await currentRef.child('messages').push({from:'bot',text:reply,time:typeof nowHM==='function'?nowHM():new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}),ts:firebase.database.ServerValue.TIMESTAMP,processed:true,sourceMessageKey:key,engine:'member-v1'});
       await currentRef.update({status:'bot',updatedAt:firebase.database.ServerValue.TIMESTAMP});
       if(typeof $==='function' && $('typing'))$('typing').textContent='';
     }catch(e){console.warn('[MemberBot] reply failed',e)}
   }
 
   async function loadRemoteBotData(){
-    try{
-      const snap=await db.ref('cscc/botPublic').once('value');
-      const v=snap.val()||{};
-      if(Array.isArray(v.rules)&&v.rules.length)botRules=v.rules;
-      if(Array.isArray(v.qna)&&v.qna.length)botQna=v.qna;
-      if(v.config&&typeof v.config==='object')botConfig={...DEFAULT_CONFIG,...v.config};
-    }catch(_){/* Firebase rules may block this; defaults still keep bot active. */}
+    try{const snap=await db.ref('cscc/botPublic').once('value'),v=snap.val()||{};if(Array.isArray(v.rules)&&v.rules.length)botRules=v.rules;if(Array.isArray(v.qna)&&v.qna.length)botQna=v.qna;if(v.config&&typeof v.config==='object')botConfig={...DEFAULT_CONFIG,...v.config}}catch(_){ }
   }
 
   function attach(){
     if(typeof currentRef==='undefined'||!currentRef||attachedRef===currentRef)return false;
-    attachedRef=currentRef;
-    loadRemoteBotData();
-    currentRef.child('messages').on('child_added',snap=>{
-      const m=snap.val()||{};
-      if(m.from==='member'&&m.processed!==true)claimAndReply(snap.key,m);
-    });
+    attachedRef=currentRef;loadRemoteBotData();
+    currentRef.child('messages').on('child_added',snap=>{const m=snap.val()||{};if(m.from==='member'&&m.processed!==true)claimAndReply(snap.key,m)});
     return true;
   }
 
-  const timer=setInterval(()=>{if(attach())clearInterval(timer)},250);
+  const timer=setInterval(()=>{if(attach())clearInterval(timer)},200);
   setTimeout(()=>clearInterval(timer),30000);
 })();
