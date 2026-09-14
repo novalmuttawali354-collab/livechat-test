@@ -1,5 +1,5 @@
-/* CS COMMAND — Premium interactions v2.1
-   Safe enhancement layer + Auto Bot duplicate-response guard.
+/* CS COMMAND — Premium interactions v2.2
+   Safe enhancement layer + hardened Auto Bot anti-spam.
 */
 (function(){
   'use strict';
@@ -82,15 +82,15 @@
     }
   }
 
-  /*
-   * Anti double-response guard.
-   * Sebelumnya pesan member baru ditandai processed SETELAH bot menjawab.
-   * Jika dashboard terbuka di 2 tab/window, keduanya sempat memproses pesan yang sama:
-   * satu tab dapat memberi jawaban Q&A, tab lain dapat memberi fallback.
-   *
-   * Guard ini membuat lock atomik per Firebase message key. Hanya satu dashboard
-   * yang berhasil mengambil lock dan menjalankan handleAutoReply asli.
-   */
+  function isFallbackText(text){
+    const t=String(text||'').toLowerCase();
+    return t.includes('belum dikenali oleh auto bot') ||
+           t.includes('masukkan ke antrean admin') ||
+           t.includes('masuk ke antrean admin') ||
+           t.includes('belum dikenali');
+  }
+
+  /* Lock pemrosesan per pesan member. */
   function installBotReplyGuard(){
     const original=window.handleAutoReply;
     if(typeof original!=='function' || original.__csccGuarded) return;
@@ -115,23 +115,21 @@
 
         const lockOwner=`${Date.now()}_${Math.random().toString(36).slice(2)}`;
         lockRef.transaction(current=>{
-          if(current) return; // abort: pesan ini sudah diambil dashboard/tab lain
+          if(current) return;
           return {owner:lockOwner,at:Date.now()};
         },(error,committed)=>{
           if(error){
-            console.warn('[CSCC] Bot lock error, fallback to local processing:',error);
-            original(c,text);
+            console.warn('[CSCC] Bot lock error:',error);
             return;
           }
           if(committed){
             original(c,text);
           }else{
-            console.info('[CSCC] Duplicate bot processing blocked for message',memberMessage._firebaseKey);
+            console.info('[CSCC] Duplicate processing blocked:',memberMessage._firebaseKey);
           }
         },false);
       }catch(err){
-        console.warn('[CSCC] Bot guard failed, using original handler:',err);
-        return original(c,text);
+        console.warn('[CSCC] Bot guard error:',err);
       }
     };
 
@@ -140,11 +138,95 @@
     window.handleAutoReply=guarded;
   }
 
+  /*
+   * Hard dedupe saat balasan BOT ditulis ke Firebase.
+   * 1 pesan member = maksimal 1 node balasan bot di database.
+   * Jadi walaupun ada dua tab admin atau listener terpanggil dua kali,
+   * member tetap hanya menerima satu balasan.
+   */
+  function installFirebaseReplyDedupe(){
+    const rt=window.csccRealtime;
+    if(!rt || typeof rt.pushMessage!=='function' || rt.pushMessage.__deduped) return;
+
+    const originalPush=rt.pushMessage.bind(rt);
+    const localCooldown=new Map();
+
+    function latestMemberKey(c){
+      const arr=[...(c?.messages||[])].reverse();
+      const m=arr.find(x=>x && x.from==='member' && x._firebaseKey);
+      return m?._firebaseKey||null;
+    }
+
+    function recentKey(c,msg){
+      return `${c?._firebaseUid||c?.id||'x'}|${String(msg?.text||'').trim().toLowerCase()}`;
+    }
+
+    function guardedPush(c,msg){
+      if(!msg || msg.from!=='bot') return originalPush(c,msg);
+
+      const cooldownKey=recentKey(c,msg);
+      const now=Date.now();
+      const last=localCooldown.get(cooldownKey)||0;
+      if(now-last<2500){
+        console.info('[CSCC] Duplicate bot reply blocked by cooldown');
+        return;
+      }
+      localCooldown.set(cooldownKey,now);
+      setTimeout(()=>{
+        if(localCooldown.get(cooldownKey)===now)localCooldown.delete(cooldownKey);
+      },5000);
+
+      if(!c?._firebaseUid || !window.firebase || typeof firebase.database!=='function'){
+        return originalPush(c,msg);
+      }
+
+      const sourceKey=latestMemberKey(c);
+      if(!sourceKey) return originalPush(c,msg);
+
+      const clean={
+        from:'bot',
+        text:String(msg.text||''),
+        time:msg.time||(typeof window.nowHM==='function'?window.nowHM():new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})),
+        ts:msg.ts||Date.now(),
+        processed:true,
+        sourceMessageKey:sourceKey
+      };
+
+      const safeSource=String(sourceKey).replace(/[.#$\[\]\/]/g,'_');
+      const replyRef=firebase.database().ref(
+        `cscc/conversations/${c._firebaseUid}/messages/bot_${safeSource}`
+      );
+
+      const write=()=>replyRef.transaction(current=>{
+        if(current) return; // sudah ada balasan untuk pesan member ini
+        return clean;
+      },(error,committed)=>{
+        if(error) console.warn('[CSCC] Reply dedupe transaction error:',error);
+        else if(!committed) console.info('[CSCC] Extra bot reply blocked for',sourceKey);
+      },false);
+
+      // Fallback sengaja sedikit ditunda. Kalau ada jawaban rule/Q&A yang benar,
+      // jawaban itu akan menang dan fallback tidak sempat masuk ke member.
+      if(isFallbackText(clean.text)) setTimeout(write,650);
+      else write();
+    }
+
+    guardedPush.__deduped=true;
+    guardedPush.__original=originalPush;
+    rt.pushMessage=guardedPush;
+  }
+
   function observeDynamicUI(){
     let timer;
     const observer=new MutationObserver(()=>{
       clearTimeout(timer);
-      timer=setTimeout(()=>{enhanceNav();addClock();addSearchHint();installBotReplyGuard();},60);
+      timer=setTimeout(()=>{
+        enhanceNav();
+        addClock();
+        addSearchHint();
+        installBotReplyGuard();
+        installFirebaseReplyDedupe();
+      },60);
     });
     observer.observe(document.body,{childList:true,subtree:true});
   }
@@ -156,8 +238,9 @@
     keyboardShortcuts();
     addRipple();
     installBotReplyGuard();
+    installFirebaseReplyDedupe();
     observeDynamicUI();
-    document.documentElement.dataset.premiumUi='2.1';
+    document.documentElement.dataset.premiumUi='2.2';
   }
 
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot,{once:true});
