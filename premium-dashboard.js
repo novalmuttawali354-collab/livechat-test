@@ -1,6 +1,6 @@
-/* CS COMMAND — Premium interactions v3
-   Dashboard becomes monitor/admin only for realtime bot replies.
-   Auto Bot runs from member page, so it works even when admin is not logged in.
+/* CS COMMAND — Premium interactions v4
+   Dashboard is monitor/admin only. Realtime Auto Bot is owned by member-bot.js.
+   Hard rule: dashboard browser is NEVER allowed to send msg.from === 'bot' to Firebase.
 */
 (function(){
   'use strict';
@@ -46,15 +46,38 @@
     if(!qs('#premiumInteractionStyle')){const st=document.createElement('style');st.id='premiumInteractionStyle';st.textContent='@keyframes premiumRipple{to{transform:scale(1);opacity:0}} .btn>*{position:relative;z-index:1}';document.head.appendChild(st)}
   }
 
-  /* Realtime Auto Bot no longer runs in admin browser. */
+  /* Disable the old dashboard reply engine for realtime Firebase conversations. */
   function installRealtimeObserverMode(){
     const original=window.handleAutoReply;
-    if(typeof original!=='function'||original.__observerMode)return;
-    const observer=function(c,text){
-      if(c&&c._firebaseUid)return; // member-bot.js owns realtime bot replies
-      return original(c,text);
-    };
-    observer.__observerMode=true;observer.__original=original;window.handleAutoReply=observer;
+    if(typeof original==='function' && !original.__dashboardNoBot){
+      const observer=function(c,text){
+        if(c&&c._firebaseUid){
+          console.info('[CSCC] Dashboard bot processing blocked. member-bot.js owns realtime reply.');
+          return;
+        }
+        return original(c,text);
+      };
+      observer.__dashboardNoBot=true;
+      observer.__original=original;
+      window.handleAutoReply=observer;
+    }
+
+    /* Hard network kill-switch: even if an old callback reaches pushMessage,
+       dashboard may only send ADMIN/agent messages, never AUTO BOT messages. */
+    const rt=window.csccRealtime;
+    if(rt && typeof rt.pushMessage==='function' && !rt.pushMessage.__dashboardNoBot){
+      const raw=rt.pushMessage.bind(rt);
+      const safePush=function(c,msg){
+        if(msg && msg.from==='bot'){
+          console.warn('[CSCC] Blocked duplicate dashboard Auto Bot Firebase write.');
+          return;
+        }
+        return raw(c,msg);
+      };
+      safePush.__dashboardNoBot=true;
+      safePush.__original=raw;
+      rt.pushMessage=safePush;
+    }
   }
 
   async function syncBotPublic(){
@@ -80,21 +103,20 @@
   }
 
   function watchAdminAuth(){
-    try{
-      if(!window.firebase||!firebase.apps.length)return;
-      firebase.auth().onAuthStateChanged(user=>{if(user&&!user.isAnonymous)setTimeout(syncBotPublic,300)});
-    }catch(_){ }
+    try{if(!window.firebase||!firebase.apps.length)return;firebase.auth().onAuthStateChanged(user=>{if(user&&!user.isAnonymous)setTimeout(syncBotPublic,300)})}catch(_){ }
   }
 
   function observeDynamicUI(){
-    let timer;const observer=new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(()=>{enhanceNav();addClock();addSearchHint();installRealtimeObserverMode();wrapBotEditors()},60)});
+    let timer;const observer=new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(()=>{enhanceNav();addClock();addSearchHint();installRealtimeObserverMode();wrapBotEditors()},30)});
     observer.observe(document.body,{childList:true,subtree:true});
   }
 
   function boot(){
     addClock();enhanceNav();addSearchHint();keyboardShortcuts();addRipple();
     installRealtimeObserverMode();wrapBotEditors();watchAdminAuth();observeDynamicUI();
-    document.documentElement.dataset.premiumUi='3';
+    /* repeat briefly so late-created csccRealtime is also protected */
+    let n=0;const t=setInterval(()=>{installRealtimeObserverMode();if(++n>40)clearInterval(t)},100);
+    document.documentElement.dataset.premiumUi='4';
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
