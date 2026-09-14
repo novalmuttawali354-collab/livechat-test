@@ -1,5 +1,5 @@
-/* CS COMMAND — Premium interactions v2
-   Safe enhancement layer: no Firebase/chat logic is replaced.
+/* CS COMMAND — Premium interactions v2.1
+   Safe enhancement layer + Auto Bot duplicate-response guard.
 */
 (function(){
   'use strict';
@@ -82,11 +82,69 @@
     }
   }
 
+  /*
+   * Anti double-response guard.
+   * Sebelumnya pesan member baru ditandai processed SETELAH bot menjawab.
+   * Jika dashboard terbuka di 2 tab/window, keduanya sempat memproses pesan yang sama:
+   * satu tab dapat memberi jawaban Q&A, tab lain dapat memberi fallback.
+   *
+   * Guard ini membuat lock atomik per Firebase message key. Hanya satu dashboard
+   * yang berhasil mengambil lock dan menjalankan handleAutoReply asli.
+   */
+  function installBotReplyGuard(){
+    const original=window.handleAutoReply;
+    if(typeof original!=='function' || original.__csccGuarded) return;
+
+    const guarded=function(c,text){
+      try{
+        if(!c || !c._firebaseUid || !window.firebase || typeof firebase.database!=='function'){
+          return original(c,text);
+        }
+
+        const memberMessage=[...(c.messages||[])].reverse().find(m=>
+          m && m.from==='member' && m._firebaseKey && String(m.text||'')===String(text||'') && m.processed!==true
+        );
+
+        if(!memberMessage || !memberMessage._firebaseKey){
+          return original(c,text);
+        }
+
+        const lockRef=firebase.database().ref(
+          `cscc/conversations/${c._firebaseUid}/messages/${memberMessage._firebaseKey}/botLock`
+        );
+
+        const lockOwner=`${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        lockRef.transaction(current=>{
+          if(current) return; // abort: pesan ini sudah diambil dashboard/tab lain
+          return {owner:lockOwner,at:Date.now()};
+        },(error,committed)=>{
+          if(error){
+            console.warn('[CSCC] Bot lock error, fallback to local processing:',error);
+            original(c,text);
+            return;
+          }
+          if(committed){
+            original(c,text);
+          }else{
+            console.info('[CSCC] Duplicate bot processing blocked for message',memberMessage._firebaseKey);
+          }
+        },false);
+      }catch(err){
+        console.warn('[CSCC] Bot guard failed, using original handler:',err);
+        return original(c,text);
+      }
+    };
+
+    guarded.__csccGuarded=true;
+    guarded.__original=original;
+    window.handleAutoReply=guarded;
+  }
+
   function observeDynamicUI(){
     let timer;
     const observer=new MutationObserver(()=>{
       clearTimeout(timer);
-      timer=setTimeout(()=>{enhanceNav();addClock();addSearchHint();},60);
+      timer=setTimeout(()=>{enhanceNav();addClock();addSearchHint();installBotReplyGuard();},60);
     });
     observer.observe(document.body,{childList:true,subtree:true});
   }
@@ -97,8 +155,9 @@
     addSearchHint();
     keyboardShortcuts();
     addRipple();
+    installBotReplyGuard();
     observeDynamicUI();
-    document.documentElement.dataset.premiumUi='2';
+    document.documentElement.dataset.premiumUi='2.1';
   }
 
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot,{once:true});
