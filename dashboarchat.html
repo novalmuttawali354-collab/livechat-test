@@ -70,6 +70,72 @@ button,input,select,textarea{font:inherit}
 #firebaseLoginOverlay.hidden{display:none}.fb-login{width:min(430px,94vw);background:linear-gradient(180deg,#0d1d31,#081522);border:1px solid #1d4266;border-radius:20px;padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.5)}
 .fb-login h2{margin:0 0 6px}.fb-login p{color:#8da5bd;font-size:13px;line-height:1.55}.fb-login input{width:100%;margin:7px 0;background:#071321;border:1px solid #1b3b5e;border-radius:10px;padding:11px;color:white;outline:none}.fb-login button{width:100%;margin-top:9px}.fb-error{min-height:18px;color:#ff97a4;font-size:12px;margin-top:8px}.realtime-dot{width:8px;height:8px;border-radius:50%;background:#47d18c;display:inline-block;box-shadow:0 0 14px #47d18c;margin-right:6px}
 
+  /* ===== FIX SCROLL DASHBOARD ===== */
+html,
+body,
+.app{
+  height:100%;
+}
+
+.main{
+  height:100vh;
+  min-height:0;
+  overflow:hidden;
+}
+
+.content{
+  height:calc(100vh - 64px);
+  min-height:0;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+  padding-bottom:80px;
+}
+
+.content::-webkit-scrollbar{
+  width:10px;
+}
+
+.content::-webkit-scrollbar-track{
+  background:#071321;
+}
+
+.content::-webkit-scrollbar-thumb{
+  background:#284866;
+  border-radius:20px;
+  border:2px solid #071321;
+}
+
+.content::-webkit-scrollbar-thumb:hover{
+  background:#37678e;
+}
+
+.sidebar{
+  height:100vh;
+  overflow-y:auto;
+}
+
+@media(max-width:800px){
+  html,
+  body,
+  .app{
+    height:auto;
+    min-height:100%;
+  }
+
+  .main{
+    height:auto;
+    overflow:visible;
+  }
+
+  .content{
+    height:auto;
+    min-height:calc(100vh - 64px);
+    overflow:visible !important;
+    padding-bottom:100px;
+  }
+}
 </style>
 </head>
 <body>
