@@ -395,8 +395,14 @@ function handleAutoReply(c,text){
       if(state.botConfig.autoFallback) reply=state.botConfig.fallback;
    }
    if(reply){
-      c.messages.push({from:"bot",text:reply,time:nowHM()});
+      const botMsg={from:"bot",text:reply,time:nowHM(),ts:Date.now()};
+      c.messages.push(botMsg);
       c.status="bot";
+      c.unread=0;
+      // Penting: jangan hanya simpan balasan bot di localStorage dashboard.
+      // Dorong juga ke Firebase agar member menerima balasan secara realtime.
+      window.csccRealtime?.pushMessage(c,botMsg);
+      window.csccRealtime?.syncMeta(c);
    }
    saveAll(); renderInbox();
  }, Math.max(0,Number(state.botConfig.delay)||0));
@@ -635,6 +641,8 @@ const FIREBASE_CONFIG = {
   appId: "1:537533916510:web:da80e04ee7b9ed52c91bcf",
   measurementId: "G-KBH3R58S0J"
 };
+const ADMIN_EMAIL = "novalmuttawali354@gmail.com";
+
 (function(){
   const configured=!Object.values(FIREBASE_CONFIG).some(v=>String(v).includes("PASTE_"));
   const overlay=document.getElementById("firebaseLoginOverlay"),err=document.getElementById("fbAdminError"),btn=document.getElementById("fbAdminLoginBtn");
@@ -677,6 +685,14 @@ const FIREBASE_CONFIG = {
       if(!c.messages.some(x=>x._firebaseKey===key))c.messages.push({...m,_firebaseKey:key});
       c.messages.sort((a,b)=>(a.ts||0)-(b.ts||0));
       if(m.from==='member' && m.processed!==true){
+        const age=Date.now()-Number(m.ts||0);
+        // Saat dashboard baru dibuka, child_added memutar ulang pesan lama.
+        // Tandai pesan lama sebagai processed agar bot tidak membalas seluruh riwayat sekaligus.
+        if(Number(m.ts||0)>0 && age>120000){
+          db.ref(`cscc/conversations/${uid}/messages/${key}/processed`).set(true);
+          renderCurrent();
+          return;
+        }
         c.status='waiting';c.unread=Math.max(1,Number(c.unread)||0);c.summary=m.text||'Pesan member';
         renderCurrent();
         handleAutoReply(c,m.text||'');
@@ -707,18 +723,32 @@ const FIREBASE_CONFIG = {
       else state.selectedConversation=state.conversations[0]?.id||null;
       Object.keys(all).forEach(bindConversation);
       renderCurrent();
-    },e=>{err.textContent='Realtime Database ditolak: '+(e.message||e.code);});
+    },e=>{err.textContent='Realtime Database ditolak: '+(e.message||e.code);const pill=document.getElementById('botStatusPill');if(pill)pill.innerHTML='<span style="color:#ff9aa7">REALTIME ERROR</span>';console.error('Realtime Database:',e);});
   }
 
-  btn.onclick=()=>{
+  btn.onclick=async()=>{
     err.textContent='';btn.disabled=true;btn.textContent='Memeriksa...';
-    auth.signInWithEmailAndPassword(document.getElementById('fbAdminEmail').value.trim(),document.getElementById('fbAdminPassword').value)
-      .catch(e=>{err.textContent='Login gagal: '+(e.message||e.code);btn.disabled=false;btn.textContent='Masuk Dashboard';});
+    try{
+      await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+      const email=document.getElementById('fbAdminEmail').value.trim().toLowerCase();
+      if(email!==ADMIN_EMAIL.toLowerCase())throw new Error('Email ini bukan akun admin yang diizinkan.');
+      await auth.signInWithEmailAndPassword(email,document.getElementById('fbAdminPassword').value);
+    }catch(e){err.textContent='Login gagal: '+(e.message||e.code);btn.disabled=false;btn.textContent='Masuk Dashboard';}
   };
   document.getElementById('fbAdminPassword').addEventListener('keydown',e=>{if(e.key==='Enter')btn.click()});
-  auth.onAuthStateChanged(user=>{
-    if(user){overlay.classList.add('hidden');startRealtime();updateBadge();}
-    else overlay.classList.remove('hidden');
+  auth.onAuthStateChanged(async user=>{
+    const isAdmin=!!(user && !user.isAnonymous && (user.email||'').toLowerCase()===ADMIN_EMAIL.toLowerCase());
+    if(isAdmin){
+      overlay.classList.add('hidden');
+      startRealtime();
+      updateBadge();
+    }else{
+      // Jangan pernah menganggap sesi anonymous member sebagai sesi admin.
+      if(user)await auth.signOut();
+      overlay.classList.remove('hidden');
+      const pill=document.getElementById('botStatusPill');
+      if(pill)pill.textContent='ADMIN LOGIN REQUIRED';
+    }
   });
 })();
 </script>
