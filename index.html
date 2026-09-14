@@ -52,8 +52,33 @@ function renderMessage(m,key){if(document.querySelector(`[data-key="${key}"]`))r
 function showChat(){started=true;$('gate').classList.add('hidden');$('chat').classList.add('show');setTimeout(()=>$('messageBox').focus(),50)}
 async function startChat(){let name=$('memberName').value.trim(),userid=$('memberUserId').value.trim();if(!name||!userid){$('gateError').textContent='Nama member dan User ID wajib diisi.';return}localStorage.setItem('cs_member_name',name);localStorage.setItem('cs_member_userid',userid);let snap=await currentRef.once('value');if(!snap.exists()){let id=Date.now()*1000+Math.floor(Math.random()*999);await currentRef.set({id,name,userid,channel:'Website',category:'General',priority:'Medium',status:'waiting',unread:0,botPaused:false,intent:'general',summary:'Member membuka live chat',createdAt:firebase.database.ServerValue.TIMESTAMP,updatedAt:firebase.database.ServerValue.TIMESTAMP})}else await currentRef.update({name,userid,updatedAt:firebase.database.ServerValue.TIMESTAMP});bindMessages();showChat()}
 let messageBound=false;function bindMessages(){if(messageBound)return;messageBound=true;currentRef.child('messages').on('child_added',s=>{let m=s.val()||{};renderMessage(m,s.key);$('typing').textContent=''});currentRef.child('messages').on('child_changed',s=>{});currentRef.on('value',s=>{let v=s.val()||{};if(v.status==='resolved')$('typing').textContent='Percakapan telah ditandai selesai oleh admin.'})}
-async function send(){let text=$('messageBox').value.trim();if(!text||!started)return;$('messageBox').value='';$('messageBox').style.height='48px';let msg={from:'member',text,time:nowHM(),ts:Date.now(),processed:false};await currentRef.child('messages').push(msg);await currentRef.update({status:'waiting',summary:text.length>70?text.slice(0,70)+'…':text,updatedAt:firebase.database.ServerValue.TIMESTAMP});await currentRef.child('unread').transaction(n=>(Number(n)||0)+1);$('typing').textContent='Pesan terkirim • menunggu balasan…'}
-(async function init(){let configured=!Object.values(FIREBASE_CONFIG).some(v=>String(v).includes('PASTE_'));if(!configured){$('gateError').textContent='Website belum dikonfigurasi Firebase oleh admin.';$('startBtn').disabled=true;setConn('Belum dikonfigurasi',false);return}firebase.initializeApp(FIREBASE_CONFIG);auth=firebase.auth();db=firebase.database();setConn('Menghubungkan…',false);try{let cred=await auth.signInAnonymously();currentUser=cred.user;currentRef=db.ref('cscc/conversations/'+currentUser.uid);setConn('Realtime aktif',true);let oldName=localStorage.getItem('cs_member_name'),oldUid=localStorage.getItem('cs_member_userid');if(oldName)$('memberName').value=oldName;if(oldUid)$('memberUserId').value=oldUid;let snap=await currentRef.once('value');if(snap.exists()&&oldName&&oldUid){bindMessages();showChat()}}catch(e){$('gateError').textContent='Gagal terhubung: '+(e.message||e.code);setConn('Koneksi gagal',false)}})();
+async function send(){let text=$('messageBox').value.trim();if(!text||!started)return;$('messageBox').value='';$('messageBox').style.height='48px';let msg={from:'member',text,time:nowHM(),ts:firebase.database.ServerValue.TIMESTAMP,processed:false};await currentRef.child('messages').push(msg);await currentRef.update({status:'waiting',summary:text.length>70?text.slice(0,70)+'…':text,updatedAt:firebase.database.ServerValue.TIMESTAMP});await currentRef.child('unread').transaction(n=>(Number(n)||0)+1);$('typing').textContent='Pesan terkirim • menunggu balasan…'}
+(async function init(){
+  let configured=!Object.values(FIREBASE_CONFIG).some(v=>String(v).includes('PASTE_'));
+  if(!configured){$('gateError').textContent='Website belum dikonfigurasi Firebase oleh admin.';$('startBtn').disabled=true;setConn('Belum dikonfigurasi',false);return}
+  // Gunakan named Firebase app agar login anonymous member TIDAK menimpa sesi login admin
+  // meskipun member-chat dan dashboard berada pada domain GitHub Pages yang sama.
+  const memberApp = firebase.apps.find(a=>a.name==='MEMBER_APP') || firebase.initializeApp(FIREBASE_CONFIG,'MEMBER_APP');
+  auth=memberApp.auth();
+  db=memberApp.database();
+  setConn('Menghubungkan…',false);
+  try{
+    await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    let restoredUser=await new Promise(resolve=>{let unsub=auth.onAuthStateChanged(u=>{unsub();resolve(u)})});
+    if(!restoredUser || !restoredUser.isAnonymous){
+      if(restoredUser)await auth.signOut();
+      let cred=await auth.signInAnonymously();
+      restoredUser=cred.user;
+    }
+    currentUser=restoredUser;
+    currentRef=db.ref('cscc/conversations/'+currentUser.uid);
+    setConn('Realtime aktif',true);
+    let oldName=localStorage.getItem('cs_member_name'),oldUid=localStorage.getItem('cs_member_userid');
+    if(oldName)$('memberName').value=oldName;if(oldUid)$('memberUserId').value=oldUid;
+    let snap=await currentRef.once('value');
+    if(snap.exists()&&oldName&&oldUid){bindMessages();showChat()}
+  }catch(e){$('gateError').textContent='Gagal terhubung: '+(e.message||e.code);setConn('Koneksi gagal',false)}
+})();
 $('startBtn').onclick=startChat;$('sendBtn').onclick=send;$('messageBox').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});$('messageBox').addEventListener('input',e=>{e.target.style.height='48px';e.target.style.height=Math.min(130,e.target.scrollHeight)+'px'});
 </script>
 </body></html>
